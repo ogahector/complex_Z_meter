@@ -1,0 +1,15 @@
+Complex Impedance Meter.ioc
+Complex Impedance Meter Debug.launch
+STM32F446RETX_FLASH.ld
+STM32F446RETX_RAM.ld
+
+.project
+.cproject
+.mxproject
+
+*.exe
+/*.settings
+/Binaries
+# /Includes
+# /Drivers
+/Debug
