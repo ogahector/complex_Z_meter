@@ -157,7 +157,7 @@ int main(void)
 	  if(buttonPress())
 	  {
 		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-		  HAL_UART_Transmit(&huart2, buffer, 100, 1);
+		  HAL_UART_Transmit(&huart2, (const uint8_t*) buffer, 100, 1);
 	  }
 	  else
 	  {

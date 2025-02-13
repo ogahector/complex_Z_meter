@@ -1,0 +1,37 @@
+LTspice 24.0.12 for Windows
+Circuit: * C:\Users\ogahe\OneDrive\Documents\!IMPERIAL\YEAR3\INSTR\CW2_INSTR\spice_sim\ABB_improved.asc
+Start Time: Sat Feb  8 11:08:30 2025
+solver = Normal
+Maximum thread count: 12
+
+
+
+WARNING: Less than two connections to node vcc.  This node is used by vcc.
+Direct Newton iteration for .op point succeeded.
+Ignoring empty pin current: Ix(u1:1)
+Ignoring empty pin current: Ix(u1:2)
+Ignoring empty pin current: Ix(u1:1)
+Ignoring empty pin current: Ix(u1:2)
+.step rg=1000 fc=100
+
+
+
+.step rg=10000 fc=100
+
+
+
+.step rg=100000 fc=100
+
+
+
+.step rg=1000 fc=1000
+
+
+
+.step rg=10000 fc=1000
+tnom = 27
+temp = 27
+method = modified trap
+.step rg=100000 fc=1000
+Total elapsed time: 0.111 seconds.
+

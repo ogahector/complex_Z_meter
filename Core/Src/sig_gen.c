@@ -22,10 +22,13 @@ void Calculate_Sine_Wave(uint32_t* buffer, int size)
     return 0;
 }
 
-static void Set_Timer_Frequency(TIM_HandleTypeDef* htim, int frequency)
+void Set_Timer_Frequency(TIM_HandleTypeDef* htim, int frequency)
 {
+
 	return;
 }
+
+
 //Calculate_Sine_Wave(void);
 
 
@@ -41,7 +44,7 @@ static void Set_Timer_Frequency(TIM_HandleTypeDef* htim, int frequency)
 //	HAL_TIM_Base_Stop_DMA(htim);
 //}
 
-static void Stop_Input_Sine_Wave(DAC_HandleTypeDef* hdac)
+void Stop_Input_Sine_Wave(DAC_HandleTypeDef* hdac)
 {
 
 }
