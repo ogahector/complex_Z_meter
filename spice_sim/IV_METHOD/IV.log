@@ -1,8 +1,8 @@
 Questionable use of curly braces in "b§dac vdac_old 0  v={floor(v(vin)/{vrange}*{nlevels})/{nlevels}*{vrange}}"
     Error: undefined symbol in: "floor([v](vin)/(vrange)*(nlevels))/(nlevels)*(vrange)"
 LTspice 24.0.12 for Windows
-Circuit: * C:\Users\ogahe\OneDrive\Documents\!IMPERIAL\YEAR3\INSTR\CW2_INSTR\spice_sim\IV_METHOD\IV.asc
-Start Time: Mon Feb 10 16:50:28 2025
+Circuit: * C:\Users\rolando\OneDrive - Imperial College London\EE3\Instrumentation\Coursework 2\complex_Z_meter\spice_sim\IV_METHOD\IV.asc
+Start Time: Fri Feb 14 18:49:17 2025
 solver = Normal
 Maximum thread count: 8
 tnom = 27
@@ -10,5 +10,10 @@ temp = 27
 method = modified trap
 WARNING: Less than two connections to node vdac_old.  This node is used by dac.
 Direct Newton iteration for .op point succeeded.
-Total elapsed time: 0.161 seconds.
+
+ideal_output: (v(n001)-v(n002))/i(dut)=(60dB,180°)
+real_read_output: (v(vadc1)-v(vadc2))/i(dut)=(55.498dB,136.735°)
+real_full_output: (v(vadc1)-v(vadc2))/(v(vadc1)/(1000-1/(2*pi*frequency*1u)))=(53.9274dB,-0.223303°)
+
+Total elapsed time: 0.072 seconds.
 
