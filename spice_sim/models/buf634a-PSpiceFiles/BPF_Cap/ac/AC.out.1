@@ -1,0 +1,204 @@
+
+**** 12/16/20 13:38:05 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     CIRCUIT DESCRIPTION
+
+
+******************************************************************************
+
+
+
+
+** Creating circuit file "ac.cir" 
+** WARNING: THIS AUTOMATICALLY GENERATED FILE MAY BE OVERWRITTEN BY SUBSEQUENT SIMULATIONS
+
+*Libraries: 
+* Profile Libraries :
+* Local Libraries :
+.LIB "../../../buf634a_a.lib" 
+* From [PSPICE NETLIST] section of C:\SPB_Data\cdssetup\OrCAD_PSpiceTIPSpice_Install\17.4.0\PSpice.ini file:
+.lib "nom_pspti.lib" 
+.lib "nom.lib" 
+
+*Analysis directives: 
+.AC DEC 20 1k 1G
+.OPTIONS ADVCONV
+.PROBE64 V(alias(*)) I(alias(*)) W(alias(*)) D(alias(*)) NOISE(alias(*)) 
+.INC "..\BPF_Cap.net" 
+
+
+
+**** INCLUDING BPF_Cap.net ****
+* source BUF634A
+V_V1         N02223 0 DC 1Vdc AC 1Vac 
+V_V2         N05110 0 -12V
+X_U1         N02223 OUT N05262 N05110 BUF634A
+V_V3         N05262 0 12V
+R_R_Load         0 OUT  1k TC=0,0 
+
+**** RESUMING ac.cir ****
+.END
+
+INFO(ORPSIM-15423): Unable to find index file buf634a_a.ind for library file buf634a_a.lib.
+
+INFO(ORPSIM-15422): Making new index file buf634a_a.ind for library file buf634a_a.lib.
+
+Index has 19 entries from 1 file(s).
+
+INFO(ORPSIM-16573): AC analysis does not support expression evaluation at each frequency. ABM devices with non-linear operations will be evaluated only at bias point.
+
+**** 12/16/20 13:38:05 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     Diode MODEL PARAMETERS
+
+
+******************************************************************************
+
+
+
+
+               X_U1.X_E_N.DVN  X_U1.X_I_NP.DNVF 
+          IS  100.000000E-18  100.000000E-18 
+          KF   44.721360E-12    3.162278E-12 
+
+
+**** 12/16/20 13:38:05 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     Resistor MODEL PARAMETERS
+
+
+******************************************************************************
+
+
+
+
+               X_U1.R_NOISELESS 
+  T_Measured   27            
+   T_Current -273.15         
+           R    1            
+
+
+**** 12/16/20 13:38:05 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     Voltage Controlled Switch MODEL PARAMETERS
+
+
+******************************************************************************
+
+
+
+
+               X_U1.X_ESD_IN.ESD_SW 
+         RON   50            
+        ROFF    1.000000E+12 
+         VON     .5          
+        VOFF     .45         
+
+
+               X_U1.X_ESD_OUT.ESD_SW 
+         RON   50            
+        ROFF    1.000000E+12 
+         VON     .5          
+        VOFF     .45         
+
+
+**** 12/16/20 13:38:05 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     Current Controlled Switch MODEL PARAMETERS
+
+
+******************************************************************************
+
+
+
+
+               X_U1.X_W1._W1   X_U1.X_W2._W2   
+         RON    1.000000E-03    1.000000E-03 
+        ROFF    1.000000E+03    1.000000E+03 
+         ION    3.75            3.75         
+        IOFF    4               4            
+
+
+ERROR(ORPSIM-16583): Detected an imported model containing transistors or diodes. For such models, PSpice for TI supports a minimum of one and maximum of three traces. Reduce the number of traces and simulate again.
+
+
+ABORTING SIMULATION
+**** 12/16/20 13:38:05 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     JOB STATISTICS SUMMARY
+
+
+******************************************************************************
+
+
+
+Node counts:
+  Top level (NUNODS)                =           5
+  External (NCNODS)                 =          77
+  Total (NUMNOD)                    =          77
+
+Total device count (NUMEL)          =         163
+  Capacitors (C)                    =          20
+  Diodes (D)                        =           4
+  VCVS (E)                          =           7
+  VCCS (G)                          =          28
+  CCVS (H)                          =           1
+  Current Sources (I)               =           6
+  Inductors (L)                     =           1
+  Resistors (R)                     =          77
+  VSwitches (S)                     =           4
+  Voltage Sources (V)               =          12
+  ISwitches (W)                     =           2
+
+Number of subcircuits (X)           =          21
+
+Matrix statistics:
+  Matrix size (NSTOP)               =          98
+  Initial no. elements (NTTAR)      =         389
+  No. elements w/ fillin (NTTBR)    =         389
+  No. fillins (IFILL)               =           0
+  No. overflows (NTTOV)             =           0
+  No. LU operations (IOPS)          =           0
+  Percent sparsity (PERSPA)         =      95.950
+
+Analysis statistics:
+  No. total time points (NUMTTP)    =           0
+  No. rejected time points (NUMRTP) =           0
+  No. iterations (NUMNIT)           =           0
+
+Load Threads                        =           1
+
+Runtime statistics:                       Seconds      Iterations
+  Matrix load                       =        0.00
+  Matrix solution                   =        0.00               1
+  Readin                            =        1.45
+  General setup                     =         .02
+  CMI setup                     =        0.00
+  Setup                             =        0.00
+  DC sweep                          =        0.00               0
+  Bias point                        =        0.00               0
+  AC and noise                      =        0.00               0
+  Total transient analysis          =        0.00
+  Output                            =        0.00
+  Overhead                          =         .13
+  License check-out time            =        1.84
+  Total job time (using Solver 1)   =        1.47
+

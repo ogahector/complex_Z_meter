@@ -1,0 +1,6 @@
+* source BUF634A
+V_V1         N02223 0 DC 1Vdc AC 1Vac 
+V_V2         N05110 0 -12V
+X_U1         N02223 OUT N05262 N05110 BUF634A
+V_V3         N05262 0 12V
+R_R_Load         0 OUT  1k TC=0,0 

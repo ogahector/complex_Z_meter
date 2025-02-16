@@ -1,0 +1,21 @@
+** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.sim ] 
+
+** Creating circuit file "ac.cir" 
+** WARNING: THIS AUTOMATICALLY GENERATED FILE MAY BE OVERWRITTEN BY SUBSEQUENT SIMULATIONS
+
+*Libraries: 
+* Profile Libraries :
+* Local Libraries :
+.LIB "../../../buf634a_a.lib" 
+* From [PSPICE NETLIST] section of C:\SPB_Data\cdssetup\OrCAD_PSpiceTIPSpice_Install\17.4.0\PSpice.ini file:
+.lib "nom_pspti.lib" 
+.lib "nom.lib" 
+
+*Analysis directives: 
+.AC DEC 20 1k 1G
+.OPTIONS ADVCONV
+.PROBE64 N([OUT])
+.INC "..\BPF_Cap.net" 
+
+
+.END

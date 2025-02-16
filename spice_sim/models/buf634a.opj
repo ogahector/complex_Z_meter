@@ -1,0 +1,81 @@
+(ExpressProject "BUF634A"
+  (ProjectVersion "19981106")
+  (SoftwareVersion "17.4-2020 S004-[12/16/20]")
+  (ProjectType "Analog or A/D Mixed Mode")
+  (Folder "Design Resources"
+    (Folder "Library"
+      (File ".\library\buf634a.olb"
+        (Type "Schematic Library")))
+    (NoModify)
+    (File ".\buf634a.dsn"
+      (Type "Schematic Design"))
+    (BuildFileAddedOrDeleted "x")
+    (CompileFileAddedOrDeleted "x")
+    (PSPICE_Regenerate_Netlist_Flag "FALSE")
+    (DOCKED "TRUE")
+    (DOCKING_POSITION "61215"))
+  (Folder "Layout")
+  (Folder "Outputs"
+    (File ".\buf634a-pspicefiles\bpf_cap\bpf_cap.net"
+      (Type "Report")))
+  (Folder "PSpice Resources"
+    (Folder "Simulation Profiles"
+      (ActiveProfile ".\buf634a-pspicefiles\bpf_cap\ac.sim")
+      (File.PSpice.{09528990-3187-11D2-BC7B-00A0C90CBF91}
+         ".\buf634a-pspicefiles\bpf_cap\ac.sim"
+        (DisplayName "BPF_Cap-AC")
+        (Type "PSpice Profile")))
+    (Folder "Model Libraries"
+      (Sort User)
+      (File ".\buf634a_a.lib"
+        (Type "PSpiceLibrary")
+        (DisplayName ".\buf634a_a.lib")))
+    (Folder "Stimulus Files"
+      (Sort User))
+    (Folder "Include Files"
+      (Sort User)))
+  (DefaultLibraryBrowseDirectory "library\PSpice")
+  (PartMRUSelector
+    (BUF634A
+      (FullPartName "BUF634A.Normal")
+      (LibraryName
+         "C:\USERS\A0232073\DESKTOP\GWL_MODELS\BUF634A_APL\APPENDSCRIPT\BUF634A_A.OLB")
+      (DeviceIndex "0"))
+    (0
+      (LibraryName
+         "C:\CADENCE\SPB_17.2\TOOLS\CAPTURE\LIBRARY\PSPICE\SOURCE.OLB")
+      (DeviceIndex "0"))
+    (VDC
+      (FullPartName "VDC.Normal")
+      (LibraryName
+         "C:\CADENCE\SPB_17.2\TOOLS\CAPTURE\LIBRARY\PSPICE\SOURCE.OLB")
+      (DeviceIndex "0")))
+  (MPSSessionName "a0232073")
+  (GlobalState
+    (FileView
+      (Path "Design Resources")
+      (Path "Design Resources" ".\buf634a.dsn")
+      (Path "Design Resources" ".\buf634a.dsn" "BPF_Cap")
+      (Path "Design Resources" "Library")
+      (Path "Outputs")
+      (Select "Design Resources" ".\buf634a.dsn"))
+    (HierarchyView)
+    (Doc
+      (Type "COrCapturePMDoc")
+      (Frame
+        (Placement "44 0 1 -1 -1 -8 -31 0 200 0 875"))
+      (Tab 0))
+    (Doc
+      (Type "COrSchematicDoc")
+      (Frame
+        (Placement "44 0 1 -1 -1 -1 -1 5 1468 24 893")
+        (Scroll "-162 -8")
+        (Zoom "114")
+        (Occurrence "/"))
+      (Path
+         "C:\USERS\A0232073\DESKTOP\GWL_MODELS\BUF634A\APPENDSCRIPT\BUF634A_PSPICE\BUF634A.DSN")
+      (Schematic "BPF_Cap")
+      (Page "BPF_Capacitive")))
+  (LastUsedLibraryBrowseDirectory
+     "C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript")
+  (Folder "Logs"))

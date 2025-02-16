@@ -1,0 +1,259 @@
+
+**** 12/16/20 13:38:13 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     CIRCUIT DESCRIPTION
+
+
+******************************************************************************
+
+
+
+
+** Creating circuit file "ac.cir" 
+** WARNING: THIS AUTOMATICALLY GENERATED FILE MAY BE OVERWRITTEN BY SUBSEQUENT SIMULATIONS
+
+*Libraries: 
+* Profile Libraries :
+* Local Libraries :
+.LIB "../../../buf634a_a.lib" 
+* From [PSPICE NETLIST] section of C:\SPB_Data\cdssetup\OrCAD_PSpiceTIPSpice_Install\17.4.0\PSpice.ini file:
+.lib "nom_pspti.lib" 
+.lib "nom.lib" 
+
+*Analysis directives: 
+.AC DEC 20 1k 1G
+.OPTIONS ADVCONV
+.PROBE64 N([OUT])
+.INC "..\BPF_Cap.net" 
+
+
+
+**** INCLUDING BPF_Cap.net ****
+* source BUF634A
+V_V1         N02223 0 DC 1Vdc AC 1Vac 
+V_V2         N05110 0 -12V
+X_U1         N02223 OUT N05262 N05110 BUF634A
+V_V3         N05262 0 12V
+R_R_Load         0 OUT  1k TC=0,0 
+
+**** RESUMING ac.cir ****
+.END
+
+INFO(ORPSIM-16573): AC analysis does not support expression evaluation at each frequency. ABM devices with non-linear operations will be evaluated only at bias point.
+
+**** 12/16/20 13:38:13 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     Diode MODEL PARAMETERS
+
+
+******************************************************************************
+
+
+
+
+               X_U1.X_E_N.DVN  X_U1.X_I_NP.DNVF 
+          IS  100.000000E-18  100.000000E-18 
+          KF   44.721360E-12    3.162278E-12 
+
+
+**** 12/16/20 13:38:13 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     Resistor MODEL PARAMETERS
+
+
+******************************************************************************
+
+
+
+
+               X_U1.R_NOISELESS 
+  T_Measured   27            
+   T_Current -273.15         
+           R    1            
+
+
+**** 12/16/20 13:38:13 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     Voltage Controlled Switch MODEL PARAMETERS
+
+
+******************************************************************************
+
+
+
+
+               X_U1.X_ESD_IN.ESD_SW 
+         RON   50            
+        ROFF    1.000000E+12 
+         VON     .5          
+        VOFF     .45         
+
+
+               X_U1.X_ESD_OUT.ESD_SW 
+         RON   50            
+        ROFF    1.000000E+12 
+         VON     .5          
+        VOFF     .45         
+
+
+**** 12/16/20 13:38:13 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     Current Controlled Switch MODEL PARAMETERS
+
+
+******************************************************************************
+
+
+
+
+               X_U1.X_W1._W1   X_U1.X_W2._W2   
+         RON    1.000000E-03    1.000000E-03 
+        ROFF    1.000000E+03    1.000000E+03 
+         ION    3.75            3.75         
+        IOFF    4               4            
+
+
+**** 12/16/20 13:38:13 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     SMALL SIGNAL BIAS SOLUTION       TEMPERATURE =   27.000 DEG C
+
+
+******************************************************************************
+
+
+
+ NODE   VOLTAGE     NODE   VOLTAGE     NODE   VOLTAGE     NODE   VOLTAGE
+
+
+(  OUT)    1.1998  (N02223)    1.0000 (N05110)  -12.0000 (N05262)   12.0000     
+
+(X_U1.ZO)    1.1998                   (X_U1.MID)   33.8030                      
+
+(X_U1.ESDP)    1.0000                 (X_U1.CLAMP)    1.0664                    
+
+(X_U1.VCC_B)   12.0000                (X_U1.VEE_B)  -12.0000                    
+
+(X_U1.VIMON)   35.0020                (X_U1.N06456)    1.0000                   
+
+(X_U1.N11984)    1.0294               (X_U1.N25816)    1.0337                   
+
+(X_U1.N28602)  -10.0000               (X_U1.N30136)   10.0000                   
+
+(X_U1.N30913)    1.0337               (X_U1.N31014)    1.0337                   
+
+(X_U1.N35669)   10.6820               (X_U1.N35813)   10.6820                   
+
+(X_U1.N38050)  -10.7000               (X_U1.N38096)  -10.7000                   
+
+(X_U1.N42663)   33.8030               (X_U1.N42834)   33.8030                   
+
+(X_U1.N44757)   33.8030               (X_U1.N44799)   33.8030                   
+
+(X_U1.N45856)   33.8030               (X_U1.N45892)   33.8030                   
+
+(X_U1.N45974)   33.8030               (X_U1.N45986)   33.8030                   
+
+(X_U1.N48550) -340.2000               (X_U1.N50645)  389.8000                   
+
+(X_U1.N56635)   33.8030               (X_U1.N56659)   33.8030                   
+
+(X_U1.N56721)   33.8030               (X_U1.N56733)   33.8030                   
+
+(X_U1.N56891)   -7.1975               (X_U1.N56919)   74.8030                   
+
+(X_U1.N61579)    1.0665               (X_U1.N79181)    1.0665                   
+
+(X_U1.VOUT_S)    1.1998               (X_U1.VSENSE)    1.0665                   
+
+(X_U1.N110431)   35.0020              (X_U1.N112292)    1.1998                  
+
+(X_U1.N317950) 33.80E-09              (X_U1.N406634)   12.0000                  
+
+(X_U1.N406794)  -12.0000              (X_U1.N638952)    1.0294                  
+
+(X_U1.N706292)   33.7940              (X_U1.N709083)  -37.2450                  
+
+(X_U1.N709139)   33.7990              (X_U1.N797835) -324.4300                  
+
+(X_U1.N910505)   33.6690              (X_U1.N910769)   33.6690                  
+
+(X_U1.N910865) -312.8300              (X_U1.N918956)   33.6690                  
+
+(X_U1.N922430)    1.0664              (X_U1.N922458)    1.0664                  
+
+(X_U1.N922543)    1.0665              (X_U1.N922557)    1.0665                  
+
+(X_U1.VCC_CLP)   10.6820              (X_U1.VEE_CLP)  -10.7000                  
+
+(X_U1.X_E_N.3)    0.0000              (X_U1.X_E_N.4)    0.0000                  
+
+(X_U1.X_E_N.5)    0.0000              (X_U1.X_E_N.6)    0.0000                  
+
+(X_U1.X_E_N.7)     .8338              (X_U1.X_E_N.8)     .8338                  
+
+(X_U1.CL_CLAMP)    1.0665             (X_U1.X_I_NP.3)    0.0000                 
+
+(X_U1.X_I_NP.4)    0.0000             (X_U1.X_I_NP.5)    0.0000                 
+
+(X_U1.X_I_NP.6)    0.0000             (X_U1.X_I_NP.7)     .8338                 
+
+(X_U1.X_I_NP.8)     .8338             (X_U1.CLAW_CLAMP)    1.0665           
+
+
+
+
+    VOLTAGE SOURCE CURRENTS
+    NAME         CURRENT
+
+    V_V1        -6.770E-08
+    V_V2         1.433E-03
+    V_V3        -2.633E-03
+    X_U1.V_VCM_MAX   2.380E-08
+    X_U1.V_VCM_MIN   4.380E-08
+    X_U1.V_V_GRN   4.100E-08
+    X_U1.V_V_GRP  -4.100E-08
+    X_U1.V_V_ISCN   3.740E-07
+    X_U1.V_V_ISCP  -3.560E-07
+    X_U1.X_H3.VH_H3  -1.200E-03
+    X_U1.X_W1.VW_W1  -3.274E-02
+    X_U1.X_W2.VW_W2   3.274E-02
+
+    TOTAL POWER DISSIPATION   4.91E-02  WATTS
+
+
+
+          JOB CONCLUDED
+
+**** 12/16/20 13:38:13 ******* PSpice 17.4.0 (Nov 2018) ******* ID# 0 ********
+
+ ** Profile: "BPF_Cap-ac"  [ C:\Users\a0232073\Desktop\GWL_Models\BUF634A\AppendScript\BUF634A_PSPICE\buf634a-pspicefiles\bpf_cap\ac.
+
+
+ ****     JOB STATISTICS SUMMARY
+
+
+******************************************************************************
+
+
+
+  License check-out time            =        3.36
+  Total job time (using Solver 1)   =        1.30
+
