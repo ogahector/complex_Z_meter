@@ -1,6 +1,6 @@
 LTspice 24.0.12 for Windows
 Circuit: * C:\Users\rolando\OneDrive - Imperial College London\EE3\Instrumentation\Coursework 2\complex_Z_meter\spice_sim\schematics\IV_real.asc
-Start Time: Mon Feb 17 16:19:39 2025
+Start Time: Mon Feb 17 17:07:19 2025
 Questionable use of curly braces in "b1 vadc 0  v={(floor((v(vb)/{vref})*{nlevels})/{nlevels})*{vrange_out}}"
     Error: undefined symbol in: "(floor(([v](vb)/(vref))*(nlevels))/(nlevels))*(vrange_out)"
 Questionable use of curly braces in "b1 vadc 0  v={(floor((v(vb)/{vref})*{nlevels})/{nlevels})*{vrange_out}}"
@@ -10,8 +10,8 @@ Maximum thread count: 8
 tnom = 27
 temp = 27
 method = modified trap
+WARNING: Less than two connections to node vadc1.  This node is used by b:x3:1.
 WARNING: Less than two connections to node vadc2.  This node is used by b:x5:1.
-WARNING: Less than two connections to node vadc1.  This node is used by b:x6:1.
 Direct Newton iteration for .op point succeeded.
 
 
@@ -19,5 +19,5 @@ Measurement "ideal_output" FAIL'ed
 
 Measurement "real_read_output" FAIL'ed
 
-Total elapsed time: 0.140 seconds.
+Total elapsed time: 0.157 seconds.
 
