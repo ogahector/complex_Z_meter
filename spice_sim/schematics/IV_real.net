@@ -1,0 +1,54 @@
+* C:\Users\rolando\OneDrive - Imperial College London\EE3\Instrumentation\Coursework 2\complex_Z_meter\spice_sim\schematics\IV_real.asc
+R1 N002 N001 {Rref}
+XU2 N001 N003 Vcc 0 N003 level2 Avol=Abuf GBW=GBWbuf Slew=SLEWbuf Ilimit=40m Rail=0 Vos=0 En=0 Enk=0 In=0 Ink=0 Rin=500Meg
+XU3 N002 N004 Vcc 0 N004 level2 Avol=Abuf GBW=GBWbuf Slew=SLEWbuf Ilimit=40m Rail=0 Vos=0 En=0 Enk=0 In=0 Ink=0 Rin=500Meg
+V4 Vin 0 SINE(1.65 1.65 100) AC 1
+XX2 Vcc powersupply
+XU4 Vin N001 Vcc 0 BUF634A
+XX4 N002 0 capacitor
+XX5 N004 Vadc2 adc
+XX6 N003 Vadc1 adc
+
+* block symbol definitions
+.subckt powersupply Vout
+V1 N001 0 SINE({Vdc} 2m 100k) Rser=100m
+B1 Vout N001 V=white(10e6*time)/100
+.param Vdc={mc(Vset, 0.0075)}
+.ends powersupply
+
+.subckt capacitor IN OUT
+L1 IN N001 {L}
+C1 N001 N002 {Ca}
+R1 OUT N002 {R}
+.ends capacitor
+
+.subckt adc Vin Vadc
+B1 Vadc 0 V={(floor((V(Vb)/vref)*nlevels)/nlevels)*vrange_out}
+R_inADC Vb Vin 50k
+C_ADC Vb 0 7p
+.param nlevels=10
+.param vrange_out 4.096
+.param vref = Vdda
+.ends adc
+
+.param Abuf=1Meg
+.param GBWbuf 70Meg
+.param SLEWbuf 200Meg
+* .tran 0 10m 0
+.ac dec 100 1 10Meg
+.param R=1 L=1n Ca=1u Cb=0
+* .noise V(vadc2) V1 dec 100 10 1Meg
+* Analysis
+* Component parameters
+* Voltages
+.meas AC ideal_output PARAM V(n002)/I(X1)
+.param Rref=1k
+.param Cref 1u
+.meas AC real_read_output PARAM V(vadc2)/I(X1)
+* DUT parameters
+.param Vdda 3.3
+.param Vset 15
+.lib C:\Users\rolando\OneDrive - Imperial College London\EE3\Instrumentation\Coursework 2\complex_Z_meter\spice_sim\models\buf634a_a.lib
+.lib UniversalOpAmp2.lib
+.backanno
+.end

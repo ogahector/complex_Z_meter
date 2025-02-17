@@ -1,0 +1,10 @@
+Version 4
+SymbolType BLOCK
+RECTANGLE Normal -80 -24 48 24
+WINDOW 0 -16 -24 Bottom 2
+PIN 48 0 RIGHT 8
+PINATTR PinName Vdac
+PINATTR SpiceOrder 1
+PIN -80 0 LEFT 8
+PINATTR PinName Din
+PINATTR SpiceOrder 2
