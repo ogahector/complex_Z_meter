@@ -1,0 +1,21 @@
+* C:\Users\rolando\OneDrive - Imperial College London\EE3\Instrumentation\Coursework 2\complex_Z_meter\spice_sim\schematics\powersupply.asc
+V1 N004 0 SINE({Vdc} 2m 100k) Rser=100m
+B1 N003 N004 V=white(10e6*time)/100
+R1 N003 N001 1k
+C1 N001 0 10µ
+D1 Vout N001 1N4148
+Q1 N003 N002 Vout 0 NPN
+R2 N002 N001 100
+.model D D
+.lib C:\Users\rolando\AppData\Local\LTspice\lib\cmp\standard.dio
+.model NPN NPN
+.model PNP PNP
+.lib C:\Users\rolando\AppData\Local\LTspice\lib\cmp\standard.bjt
+* .step param Vdc list 3.3 5 7.5 10 16 18 25 30 40
+.tran 0 5m 0 1n
+.param Vdc={mc(Vset, 0.0075)}
+* .step param run 1 5 1
+.param Vset 15
+* Add ferrite bead? Choose diode model?
+.backanno
+.end

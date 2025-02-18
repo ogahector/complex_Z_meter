@@ -1,29 +1,15 @@
 LTspice 24.0.12 for Windows
 Circuit: * C:\Users\rolando\OneDrive - Imperial College London\EE3\Instrumentation\Coursework 2\complex_Z_meter\spice_sim\schematics\powersupply.asc
-Start Time: Mon Feb 17 15:18:57 2025
+Start Time: Tue Feb 18 12:11:44 2025
+Warning: Multiple definitions of model "2scr375p" Type: BJT
+Warning: Multiple definitions of model "bc857b" Type: BJT
+Warning: Multiple definitions of model "bc847c" Type: BJT
+Warning: Multiple definitions of model "bc847b" Type: BJT
 solver = Normal
 Maximum thread count: 8
-
-
-
-WARNING: Less than two connections to node vcc.  This node is used by b1.
-Direct Newton iteration for .op point succeeded.
-.step run=1
-
-
-
-.step run=2
-
-
-
-.step run=3
-
-
-
-.step run=4
 tnom = 27
 temp = 27
 method = modified trap
-.step run=5
-Total elapsed time: 59.817 seconds.
+Direct Newton iteration for .op point succeeded.
+Total elapsed time: 58.018 seconds.
 
