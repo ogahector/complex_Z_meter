@@ -5,24 +5,36 @@
  *      Author: ogahe
  */
 
-#ifndef INC_SIG_GEN_H_
-#define INC_SIG_GEN_H_
+#ifndef SIG_GEN_H
+#define SIG_GEN_H
 
-// INCLUDES
-#include "math.h"
 #include "stm32f4xx_hal.h"
+#include <math.h>
+#include <stdint.h>
 
-/* MACROS */
-#define SINE_LUT_SIZE 100
-#define DAC_RESOLUTION_BITS 12
+#define F_TIMER_CLOCK 45000000  // APB1 clock for Timer6
+#define DAC_RESOLUTION_BITS 12  // 12-bit DAC
+#define SINE_LUT_SIZE 100     // Size of the sine wave lookup table
 
-// EXPORT CONSTANTS
+extern volatile uint32_t sine_wave_buffer[SINE_LUT_SIZE];  // Lookup table storage
+extern DAC_HandleTypeDef hdac;
+extern TIM_HandleTypeDef htim6;
 
-/* EXPORT FUNCTIONS */
-void Calculate_Sine_Wave(uint32_t* buffer, int size);
-//static void Start_Input_Sine_Wave(DAC_HandleTypeDef* hdac, int frequency, TIM_HandleTypeDef* htim);
-void Set_Timer_Frequency(TIM_HandleTypeDef* htim, int frequency);
-//static void Start_Input_Sine_Wave(TIM_HandleTypeDef* htim);
-void Stop_Input_Sine_Wave(DAC_HandleTypeDef* hdac);
+// Function to compute sine wave lookup table
+void Calculate_Sine_Wave(volatile uint32_t buffer[], int size);
 
-#endif
+void Fill_Sine_Buffer();
+
+// Function to enable sine wave generation via DAC + DMA
+void Enable_Sine_Gen();
+
+// Function to disable sine wave generation
+void Disable_Sine_Gen();
+
+// Function to set Timer6 frequency
+uint32_t Set_Timer6_Frequency(uint32_t f_desired);
+
+// Function to compute logarithmically spaced frequency points
+void Calculate_Frequencies(long fstart, long fstop, uint8_t points_per_decade, int total_points, uint32_t frequencies[]);
+
+#endif /* SIG_GEN_H */

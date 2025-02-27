@@ -31,6 +31,9 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "sig_gen.h"
+#include "dual_spi_adc.h"
+#include <stdint.h>
 
 /* USER CODE END Includes */
 
@@ -59,18 +62,36 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
+#define VMEAS0_Pin GPIO_PIN_0
+#define VMEAS0_GPIO_Port GPIOC
+#define VMEAS2_Pin GPIO_PIN_0
+#define VMEAS2_GPIO_Port GPIOA
 #define USART_TX_Pin GPIO_PIN_2
 #define USART_TX_GPIO_Port GPIOA
 #define USART_RX_Pin GPIO_PIN_3
 #define USART_RX_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_5
 #define LD2_GPIO_Port GPIOA
+#define ADC_CONVST_Pin GPIO_PIN_6
+#define ADC_CONVST_GPIO_Port GPIOA
+#define ADC_RD_Pin GPIO_PIN_7
+#define ADC_RD_GPIO_Port GPIOA
+#define VMEAS1_Pin GPIO_PIN_4
+#define VMEAS1_GPIO_Port GPIOC
+#define ADC_M0_Pin GPIO_PIN_7
+#define ADC_M0_GPIO_Port GPIOC
+#define ADC_M1_Pin GPIO_PIN_9
+#define ADC_M1_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
+#define SPI2_MISO_Pin GPIO_PIN_11
+#define SPI2_MISO_GPIO_Port GPIOC
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
+#define ADC_BUSY_Pin GPIO_PIN_6
+#define ADC_BUSY_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
