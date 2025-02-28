@@ -14,9 +14,9 @@
 
 #define F_TIMER_CLOCK 45000000  // APB1 clock for Timer6
 #define DAC_RESOLUTION_BITS 12  // 12-bit DAC
-#define SINE_LUT_SIZE 100     // Size of the sine wave lookup table
+#define DAC_LUT_SIZE 100     // Size of the sine wave lookup table
 
-extern volatile uint32_t sine_wave_buffer[SINE_LUT_SIZE];  // Lookup table storage
+extern volatile uint32_t sine_wave_buffer[DAC_LUT_SIZE];  // Lookup table storage
 extern DAC_HandleTypeDef hdac;
 extern TIM_HandleTypeDef htim2;
 

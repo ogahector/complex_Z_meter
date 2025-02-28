@@ -68,8 +68,9 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
-volatile uint32_t sine_wave_buffer[SINE_LUT_SIZE];
-volatile uint32_t vmeas0[SINE_LUT_SIZE];
+volatile uint32_t sine_wave_buffer[DAC_LUT_SIZE];
+volatile uint32_t vmeas_buffer[ADC_BUFFER_SIZE];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -137,7 +138,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   TransmitString("\n");
 
-  int i = 0;
+  long long i = 0;
 
   Fill_Sine_Buffer();
 
@@ -145,13 +146,22 @@ int main(void)
   sprintf(msg5, "DAC STATE PRE INIT: %d", HAL_DAC_GetState(&hdac));
   TransmitStringLn(msg5);
 
-  if(HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, sine_wave_buffer, SINE_LUT_SIZE, DAC_ALIGN_12B_R) != HAL_OK)
+  if(HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, sine_wave_buffer, DAC_LUT_SIZE, DAC_ALIGN_12B_R) != HAL_OK)
   {
 	  TransmitStringLn("ERROR SETTING UP DAC DMA");
   }
   else
   {
-	  TransmitStringLn("DMA GOOD INIT");
+	  TransmitStringLn("DAC DMA GOOD INIT");
+  }
+
+  if(HAL_ADC_Start_DMA(&hadc1, vmeas_buffer, ADC_BUFFER_SIZE) != HAL_OK)
+  {
+	  TransmitStringLn("ERROR SETTING UP ADC DMA");
+  }
+  else
+  {
+	  TransmitStringLn("ADC DMA GOOD INIT");
   }
 
 
@@ -167,26 +177,27 @@ int main(void)
   sprintf(msg3, "Current TIM Freq: %lu", GetTimXCurrentFrequency(&htim2));
   TransmitStringLn(msg3);
 
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  bool sw;
 	  i++;
+	  Enable_Sine_Gen();
 
 	  if(buttonPress())
 	  {
 		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-		  Enable_Sine_Gen();
-		  TransmitNum(HAL_DAC_GetValue(&hdac, DAC1_CHANNEL_1));
-
+//		  Enable_Sine_Gen();
+//		  TransmitNum(HAL_DAC_GetValue(&hdac, DAC1_CHANNEL_1));
+		  TransmitIntBuffer(vmeas_buffer, ADC_BUFFER_SIZE);
+		  HAL_Delay(100);
 	  }
 	  else
 	  {
 		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-		  Disable_Sine_Gen();
 	  }
 
 

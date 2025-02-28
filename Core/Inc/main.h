@@ -33,6 +33,7 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include "sig_gen.h"
 #include "dual_spi_adc.h"
+#include "sampling.h"
 #include <stdint.h>
 
 /* USER CODE END Includes */

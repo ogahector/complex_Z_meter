@@ -21,7 +21,7 @@ void Calculate_Sine_Wave(volatile uint32_t buffer[], int size)
 
 void Fill_Sine_Buffer()
 {
-	Calculate_Sine_Wave(sine_wave_buffer, SINE_LUT_SIZE);
+	Calculate_Sine_Wave(sine_wave_buffer, DAC_LUT_SIZE);
 }
 
 void Enable_Sine_Gen()
@@ -48,28 +48,30 @@ void Disable_Sine_Gen()
 	HAL_TIM_Base_Stop(&htim2);
 }
 
-uint32_t Set_Timer2_Frequency(uint32_t f_desired)
+uint32_t Set_Timer2_Frequency(uint32_t f_sine)
 {
-    // Calculate the required total division factor:
-    // (PSC+1) * (ARR+1) should ideally equal F_TIMER_CLOCK / f_desired.
-    uint32_t idealDiv = F_TIMER_CLOCK / f_desired;
-    uint32_t bestPSC = 0;
-    uint32_t bestARR = 0;
-    uint32_t bestError = 0xFFFFFFFF;
-    uint32_t actualFreq = F_TIMER_CLOCK;
+    // Calculate the desired timer update frequency.
+    uint32_t f_update = f_sine * DAC_LUT_SIZE;
+
+    // Calculate the ideal division factor.
+    uint32_t idealDiv = F_TIMER_CLOCK / f_update;
+
+    uint32_t bestPSC = 0, bestARR = 0, bestError = 0xFFFFFFFF, actualFreq = 0;
 
     // Iterate over possible prescaler values.
-    // For a 16-bit timer, PSC and ARR must be <= 65535.
-    for (uint32_t psc = 0; psc < 1024; psc++)  // limiting search range for speed
+    // Here we search PSC values from 0 to a reasonable limit (e.g., 1024) to find valid values.
+    for (uint32_t psc = 0; psc < 1024; psc++)
     {
         uint32_t divider = psc + 1;
         uint32_t arr_plus1 = idealDiv / divider;
-        if (arr_plus1 == 0 || arr_plus1 > 65536)
-            continue; // invalid ARR value for this PSC
+        if (arr_plus1 == 0 || arr_plus1 > 65536)  // ARR must be 0..65535 (i.e. ARR+1 <= 65536)
+            continue;
 
         uint32_t arr = arr_plus1 - 1;
+        // Calculate the actual update frequency for this configuration.
         actualFreq = F_TIMER_CLOCK / ((psc + 1) * (arr + 1));
-        uint32_t error = (f_desired > actualFreq) ? (f_desired - actualFreq) : (actualFreq - f_desired);
+        // Compute the absolute error.
+        uint32_t error = (f_update > actualFreq) ? (f_update - actualFreq) : (actualFreq - f_update);
         if (error < bestError)
         {
             bestError = error;
@@ -77,15 +79,17 @@ uint32_t Set_Timer2_Frequency(uint32_t f_desired)
             bestARR = arr;
         }
         if (error == 0)
-            break; // perfect match found
+            break;  // Perfect match found.
     }
 
-    // Set the calculated PSC and ARR values to Timer6.
+    // Set the timer registers:
     __HAL_TIM_SET_PRESCALER(&htim2, bestPSC);
     __HAL_TIM_SET_AUTORELOAD(&htim2, bestARR);
-    HAL_TIM_GenerateEvent(&htim2, TIM_EVENTSOURCE_UPDATE); // Force update event to load new values
+    // Force an update event so that new PSC/ARR values are loaded immediately.
+    HAL_TIM_GenerateEvent(&htim2, TIM_EVENTSOURCE_UPDATE);
 
-    return actualFreq;
+    // Return the actual timer update frequency (f_update_actual = F_TIMER_CLOCK / ((PSC+1)*(ARR+1)) )
+    return F_TIMER_CLOCK / ((bestPSC + 1) * (bestARR + 1));
 }
 
 void Calculate_Frequencies(long fstart, long fstop, uint8_t points_per_decade, int total_points, uint32_t frequencies[])
