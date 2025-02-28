@@ -13,8 +13,9 @@
 void Calculate_Sine_Wave(volatile uint32_t buffer[], int size)
 {
     for (size_t i = 0; i < size; i++) {
-        float angle = (2.0f * M_PI * i) / size; // Convert index to angle (radians)
-        buffer[i] = (uint32_t) (2047 * sin(angle) + 2048); // Scale to 0-4095
+        double sinangle = sin((2.0f * M_PI * i) / size); // Convert index to angle (radians)
+        double scaled = 2047*sinangle;
+        buffer[i] = (uint32_t) ((int) (scaled + 2048)); // Scale to 0-4095
     }
 }
 
@@ -25,10 +26,10 @@ void Fill_Sine_Buffer()
 
 void Enable_Sine_Gen()
 {
-	if(HAL_DAC_GetState(&hdac) != HAL_DAC_STATE_READY)
-		return;
+//	if(HAL_DAC_GetState(&hdac) != HAL_DAC_STATE_READY)
+//		return;
 	// Start TIM6 (triggers DAC)
-	HAL_TIM_Base_Start(&htim6);
+	HAL_TIM_Base_Start(&htim2);
 
 	// Start DAC1 with DMA (assumes DAC1 Channel 1)
 	// Also loads data into the DMA
@@ -38,19 +39,16 @@ void Enable_Sine_Gen()
 
 void Disable_Sine_Gen()
 {
-	if(__HAL_TIM_GET_COUNTER(&htim6) == 0)
-		return;
-	// Stop DAC
-	HAL_DAC_Stop_DMA(&hdac, DAC_CHANNEL_1);
+//	if(__HAL_TIM_GET_COUNTER(&htim2) == 0)
+//		return;
+//	 Stop DAC
+//	HAL_DAC_Stop_DMA(&hdac, DAC_CHANNEL_1);
 
 	// Stop Timer
-	HAL_TIM_Base_Stop(&htim6);
-
-	// Set DAC output to 0V or mid-range
-	HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2048);
+	HAL_TIM_Base_Stop(&htim2);
 }
 
-uint32_t Set_Timer6_Frequency(uint32_t f_desired)
+uint32_t Set_Timer2_Frequency(uint32_t f_desired)
 {
     // Calculate the required total division factor:
     // (PSC+1) * (ARR+1) should ideally equal F_TIMER_CLOCK / f_desired.
@@ -83,9 +81,9 @@ uint32_t Set_Timer6_Frequency(uint32_t f_desired)
     }
 
     // Set the calculated PSC and ARR values to Timer6.
-    __HAL_TIM_SET_PRESCALER(&htim6, bestPSC);
-    __HAL_TIM_SET_AUTORELOAD(&htim6, bestARR);
-    HAL_TIM_GenerateEvent(&htim6, TIM_EVENTSOURCE_UPDATE); // Force update event to load new values
+    __HAL_TIM_SET_PRESCALER(&htim2, bestPSC);
+    __HAL_TIM_SET_AUTORELOAD(&htim2, bestARR);
+    HAL_TIM_GenerateEvent(&htim2, TIM_EVENTSOURCE_UPDATE); // Force update event to load new values
 
     return actualFreq;
 }

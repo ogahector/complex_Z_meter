@@ -18,7 +18,7 @@
 
 extern volatile uint32_t sine_wave_buffer[SINE_LUT_SIZE];  // Lookup table storage
 extern DAC_HandleTypeDef hdac;
-extern TIM_HandleTypeDef htim6;
+extern TIM_HandleTypeDef htim2;
 
 // Function to compute sine wave lookup table
 void Calculate_Sine_Wave(volatile uint32_t buffer[], int size);
@@ -32,7 +32,7 @@ void Enable_Sine_Gen();
 void Disable_Sine_Gen();
 
 // Function to set Timer6 frequency
-uint32_t Set_Timer6_Frequency(uint32_t f_desired);
+uint32_t Set_Timer2_Frequency(uint32_t f_desired);
 
 // Function to compute logarithmically spaced frequency points
 void Calculate_Frequencies(long fstart, long fstop, uint8_t points_per_decade, int total_points, uint32_t frequencies[]);
