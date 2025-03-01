@@ -10,4 +10,9 @@
 
 #include "main.h"
 
+struct phasor_t {
+    double magnitude;
+    double phaserad;
+};
+
 #endif /* IQMETHOD_H_ */
