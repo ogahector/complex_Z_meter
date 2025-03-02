@@ -16,7 +16,7 @@
 
 extern ADC_HandleTypeDef hadc1;
 extern DMA_HandleTypeDef hdma_adc1;
-extern volatile uint32_t vmeas_buffer[ADC_BUFFER_SIZE];
+extern uint16_t vmeas_buffer[ADC_BUFFER_SIZE];
 
 
 #endif /* SRC_SAMPLING_H_ */

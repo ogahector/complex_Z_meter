@@ -15,10 +15,15 @@
 #define F_TIMER_CLOCK 45000000  // APB1 clock for Timer6
 #define DAC_RESOLUTION_BITS 12  // 12-bit DAC
 #define DAC_LUT_SIZE 100     // Size of the sine wave lookup table
+#define FREQ_MAX 100e3
+#define FREQ_MIN 100
+#define FREQ_PPDECADE 50
+#define FREQ_NDECADE 3
 
 extern volatile uint32_t sine_wave_buffer[DAC_LUT_SIZE];  // Lookup table storage
 extern DAC_HandleTypeDef hdac;
 extern TIM_HandleTypeDef htim2;
+extern TIM_HandleTypeDef htim6;
 
 // Function to compute sine wave lookup table
 void Calculate_Sine_Wave(volatile uint32_t buffer[], int size);

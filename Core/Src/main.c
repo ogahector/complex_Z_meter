@@ -63,13 +63,20 @@ SPI_HandleTypeDef hspi2;
 SPI_HandleTypeDef hspi3;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
 volatile uint32_t sine_wave_buffer[DAC_LUT_SIZE];
-volatile uint32_t vmeas_buffer[ADC_BUFFER_SIZE];
+uint16_t vmeas_buffer[ADC_BUFFER_SIZE];
+uint16_t vmeas2_buffer[2];
+
+//const uint32_t freq_max = 100e3;
+//const uint32_t freq_min = 100;
+//const uint8_t freq_ppdecade = 50;
+//uint32_t frequencies[3 * freq_ppdecade];
 
 /* USER CODE END PV */
 
@@ -82,12 +89,16 @@ static void MX_DAC_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_SPI3_Init(void);
+static void MX_TIM6_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 bool buttonPress(void);
 HAL_StatusTypeDef TransmitString(char msg[]);
 HAL_StatusTypeDef TransmitStringLn(char msg[]);
 HAL_StatusTypeDef TransmitIntBuffer(int buffer[], size_t size);
+HAL_StatusTypeDef TransmitUInt32Buffer(uint32_t buffer[], size_t size);
+HAL_StatusTypeDef TransmitUInt16Buffer(uint16_t buffer[], size_t size);
+HAL_StatusTypeDef TransmitUInt8Buffer(uint8_t buffer[], size_t size);
 HAL_StatusTypeDef TransmitNum(float num);
 HAL_StatusTypeDef TransmitNumLn(float num);
 uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim);
@@ -124,6 +135,10 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
 
+//  MX_USART2_UART_Init();
+//  TransmitString("\n");
+//  MX_TIM2_Init();
+//  MX_TIM6_Init();
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -134,65 +149,56 @@ int main(void)
   MX_USART2_UART_Init();
   MX_SPI2_Init();
   MX_SPI3_Init();
+  MX_TIM6_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  TransmitString("\n");
 
   long long i = 0;
 
+  // CALCULATE VALUES FOR SINE BUFFER DMA
   Fill_Sine_Buffer();
+//  for(size_t i = 0; i < DAC_LUT_SIZE; i++)
+//  {
+//	  sine_wave_buffer[i] = 2048;
+//  }
 
-  char msg5[64];
-  sprintf(msg5, "DAC STATE PRE INIT: %d", HAL_DAC_GetState(&hdac));
-  TransmitStringLn(msg5);
+  // INITIALISE DAC DMA in the previous function
 
-  if(HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, sine_wave_buffer, DAC_LUT_SIZE, DAC_ALIGN_12B_R) != HAL_OK)
-  {
-	  TransmitStringLn("ERROR SETTING UP DAC DMA");
-  }
-  else
-  {
-	  TransmitStringLn("DAC DMA GOOD INIT");
-  }
+  // ADC DMA INIT in the previous function
 
-  if(HAL_ADC_Start_DMA(&hadc1, vmeas_buffer, ADC_BUFFER_SIZE) != HAL_OK)
-  {
-	  TransmitStringLn("ERROR SETTING UP ADC DMA");
-  }
-  else
-  {
-	  TransmitStringLn("ADC DMA GOOD INIT");
-  }
-
-
+  // GET DAC STATE ON STARTUP
+  // Expected: BUSY
   char msg1[32];
   sprintf(msg1, "Current DAC State: %d", HAL_DAC_GetState(&hdac));
   TransmitStringLn(msg1);
 
+  // GET TIM STATE ON STARTUP
+  // Expected: READY
   char msg2[32];
-  sprintf(msg2, "Current TIM State: %d", HAL_TIMEx_GetChannelNState(&htim2, TIM6_BASE));
+  sprintf(msg2, "Current TIM State: %d", HAL_TIMEx_GetChannelNState(&htim2, TIM2_BASE));
   TransmitStringLn(msg2);
 
+  // GET CURRENT FREQUENCY
   char msg3[64];
   sprintf(msg3, "Current TIM Freq: %lu", GetTimXCurrentFrequency(&htim2));
   TransmitStringLn(msg3);
 
+  HAL_TIM_Base_Start(&htim2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  bool sw;
 	  i++;
 	  Enable_Sine_Gen();
 
 	  if(buttonPress())
 	  {
 		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-//		  Enable_Sine_Gen();
-//		  TransmitNum(HAL_DAC_GetValue(&hdac, DAC1_CHANNEL_1));
-		  TransmitIntBuffer(vmeas_buffer, ADC_BUFFER_SIZE);
+
+		  TransmitUInt16Buffer(vmeas_buffer, ADC_BUFFER_SIZE);
+//		  TransmitUInt16Buffer(vmeas2_buffer, 1);
 		  HAL_Delay(100);
 	  }
 	  else
@@ -277,7 +283,7 @@ static void MX_ADC1_Init(void)
   ADC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN ADC1_Init 1 */
-
+  TransmitStringLn("Beginning ADC DMA Init...");
   /* USER CODE END ADC1_Init 1 */
 
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
@@ -301,7 +307,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
-  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Channel = ADC_CHANNEL_10;
   sConfig.Rank = 1;
   sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
@@ -311,7 +317,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
-  sConfig.Channel = ADC_CHANNEL_10;
+  sConfig.Channel = ADC_CHANNEL_14;
   sConfig.Rank = 2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -320,13 +326,23 @@ static void MX_ADC1_Init(void)
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
-  sConfig.Channel = ADC_CHANNEL_14;
+  sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 3;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN ADC1_Init 2 */
+
+  if(HAL_ADC_Start_DMA(&hadc1, vmeas_buffer, ADC_BUFFER_SIZE) != HAL_OK)
+  {
+	  TransmitStringLn("ERROR SETTING UP ADC1 DMA");
+  }
+  else
+  {
+	  TransmitStringLn("ADC1 DMA SUCCESSFULLY INITIALISED");
+  }
+
 
   /* USER CODE END ADC1_Init 2 */
 
@@ -347,7 +363,7 @@ static void MX_DAC_Init(void)
   DAC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN DAC_Init 1 */
-
+  TransmitStringLn("Beginning DAC DMA Init...");
   /* USER CODE END DAC_Init 1 */
 
   /** DAC Initialization
@@ -360,13 +376,22 @@ static void MX_DAC_Init(void)
 
   /** DAC channel OUT1 config
   */
-  sConfig.DAC_Trigger = DAC_TRIGGER_T2_TRGO;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_DISABLE;
   if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN DAC_Init 2 */
+
+  if(HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, sine_wave_buffer, DAC_LUT_SIZE, DAC_ALIGN_12B_R) != HAL_OK)
+  {
+	  TransmitStringLn("ERROR SETTING UP DAC DMA");
+  }
+  else
+  {
+	  TransmitStringLn("DAC DMA SUCCESSFULLY INITIALISED");
+  }
 
   /* USER CODE END DAC_Init 2 */
 
@@ -501,8 +526,60 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM2_Init 2 */
-
+//    if(HAL_TIM_Base_Start(&htim2) != HAL_OK)
+//    {
+//  	  TransmitStringLn("TIM2 SUCCESSFULLY INITIALISED");
+//    }
+//    else
+//    {
+//  	  TransmitStringLn("ERROR INITIALISING TIM2");
+//    }
   /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 0;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 44;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+//  if(HAL_TIM_Base_Start(&htim6) != HAL_OK)
+//  {
+//	  TransmitStringLn("TIM6 SUCCESSFULLY INITIALISED");
+//  }
+//  else
+//  {
+//	  TransmitStringLn("ERROR INITIALISING TIM6");
+//  }
+  /* USER CODE END TIM6_Init 2 */
 
 }
 
@@ -534,6 +611,7 @@ static void MX_USART2_UART_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN USART2_Init 2 */
+
 
   /* USER CODE END USART2_Init 2 */
 
@@ -588,8 +666,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA0 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  /*Configure GPIO pin : VMEAS2_Pin */
+  GPIO_InitStruct.Pin = VMEAS2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -627,6 +705,21 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(ADC_BUSY_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
+
+  GPIO_InitStruct.Pin = VMEAS0_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(VMEAS0_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = VMEAS1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(VMEAS1_GPIO_Port, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = VMEAS2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(VMEAS2_GPIO_Port, &GPIO_InitStruct);
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -668,6 +761,68 @@ HAL_StatusTypeDef TransmitIntBuffer(int buffer[], size_t size)
     {
         // Format the integer value into a string followed by a newline
         sprintf(msg, "%d\r\n", buffer[i]);
+
+        // Transmit the formatted string over USART
+        if (TransmitString(msg) != HAL_OK)
+        {
+            return HAL_ERROR;
+        }
+    }
+
+    return HAL_OK;
+}
+
+
+HAL_StatusTypeDef TransmitUInt32Buffer(uint32_t buffer[], size_t size)
+{
+    char msg[32];  // Buffer to hold the formatted string
+
+    TransmitString("\n");
+    for (size_t i = 0; i < size; i++)
+    {
+        // Format the integer value into a string followed by a newline
+        sprintf(msg, "%lu\r\n", buffer[i]);
+
+        // Transmit the formatted string over USART
+        if (TransmitString(msg) != HAL_OK)
+        {
+            return HAL_ERROR;
+        }
+    }
+
+    return HAL_OK;
+}
+
+
+HAL_StatusTypeDef TransmitUInt16Buffer(uint16_t buffer[], size_t size)
+{
+    char msg[32];  // Buffer to hold the formatted string
+
+    TransmitString("\n");
+    for (size_t i = 0; i < size; i++)
+    {
+        // Format the integer value into a string followed by a newline
+        sprintf(msg, "%u\r\n", buffer[i]);
+
+        // Transmit the formatted string over USART
+        if (TransmitString(msg) != HAL_OK)
+        {
+            return HAL_ERROR;
+        }
+    }
+
+    return HAL_OK;
+}
+
+HAL_StatusTypeDef TransmitUInt8Buffer(uint8_t buffer[], size_t size)
+{
+    char msg[32];  // Buffer to hold the formatted string
+
+    TransmitString("\n");
+    for (size_t i = 0; i < size; i++)
+    {
+        // Format the integer value into a string followed by a newline
+        sprintf(msg, "%lu\r\n", buffer[i]);
 
         // Transmit the formatted string over USART
         if (TransmitString(msg) != HAL_OK)
@@ -724,6 +879,7 @@ void Error_Handler(void)
       // Toggle an LED or do nothing so you can observe that a fault occurred
       HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
       HAL_Delay(100);
+      TransmitStringLn("Fatal ERROR! Handled by the Error_Handler...");
   }
   /* USER CODE END Error_Handler_Debug */
 }

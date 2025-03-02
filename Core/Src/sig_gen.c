@@ -29,7 +29,7 @@ void Enable_Sine_Gen()
 //	if(HAL_DAC_GetState(&hdac) != HAL_DAC_STATE_READY)
 //		return;
 	// Start TIM6 (triggers DAC)
-	HAL_TIM_Base_Start(&htim2);
+	HAL_TIM_Base_Start(&htim6);
 
 	// Start DAC1 with DMA (assumes DAC1 Channel 1)
 	// Also loads data into the DMA

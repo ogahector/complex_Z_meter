@@ -7,7 +7,7 @@ STM32F446RETX_RAM.ld
 .cproject
 .mxproject
 *.raw
-
+*.asv
 *.exe
 /*.settings
 /Binaries
