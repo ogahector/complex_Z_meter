@@ -31,11 +31,19 @@ void Sampling_Disable()
 
 uint32_t Get_Sampling_Frequency()
 {
+	uint32_t timer_clk = HAL_RCC_GetPCLK2Freq();
 
+	uint32_t psc = __HAL_TIM_GET_ICPRESCALER(&htim2, TIM2_BASE);
+	uint32_t arr = __HAL_TIM_GET_AUTORELOAD(&htim2);
+
+
+	// Compute update frequency: f_update = timer_clk / ((PSC+1) * (ARR+1))
+	uint32_t f_update = timer_clk / ((psc + 1) * (arr + 1));
+	return f_update / (15*3);
 }
 
 
-phasor_t Get_Phasor_1Sig(uint32_t sig[], size_t len, uint32_t f0, uint32_t fs)
+phasor_t Get_Phasor_1Sig(uint16_t sig[], size_t len, uint32_t f0, uint32_t fs)
 {
 	/*
 	 * Be VERY Careful using this function:
@@ -64,7 +72,7 @@ phasor_t Get_Phasor_1Sig(uint32_t sig[], size_t len, uint32_t f0, uint32_t fs)
 	};
 }
 
-phasor_t Get_Phasor_2Sig(uint32_t sig[], uint32_t ref[], size_t lensig, size_t lenref, uint32_t f0, uint32_t fs)
+phasor_t Get_Phasor_2Sig(uint16_t sig[], uint16_t ref[], size_t lensig, size_t lenref, uint32_t f0, uint32_t fs)
 {
 	// Think about optimising this bc this calculates
 	// the ref_cos and ref_sin twice
@@ -133,11 +141,11 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, float Rref, phasor_t 
 
 
 
-uint32_t Get_Steady_State(uint32_t f0, uint16_t buffADC[], uint16_t vmeas0[], uint16_t vmeas1[], uint16_t vmeas2[])
+uint32_t Sample_Steady_State(uint32_t f0, uint16_t buffADC[], uint16_t vmeas0[], uint16_t vmeas1[], uint16_t vmeas2[])
 {
 	Sampling_Disable();
 	uint32_t actualFreq = Set_Timer6_Frequency(f0);
-	HAL_Delay(1);
+	HAL_Delay(1); // ms
 	Sampling_Enable();
 
 	// Wait 10x a period to get a steady state
@@ -148,24 +156,15 @@ uint32_t Get_Steady_State(uint32_t f0, uint16_t buffADC[], uint16_t vmeas0[], ui
 	return actualFreq;
 }
 
-void Get_Steady_State_Phasors(uint32_t f0, uint16_t buffADC[], phasor_t* input, phasor_t* output)
+uint32_t Sample_Steady_State_Phasors(uint32_t f0, uint16_t buffADC[], phasor_t* input, phasor_t* output)
 {
-	Sampling_Disable();
-	uint32_t actualFreq = Set_Timer6_Frequency(f0);
-	HAL_Delay(1);
-	Sampling_Enable();
-
-	// Wait 10x a period to get a steady state
-	HAL_Delay( (uint32_t) 10*1000/f0 );
-
-
 	uint16_t vmeas0[ADC_SAMPLES_PER_CHANNEL];
 	uint16_t vmeas1[ADC_SAMPLES_PER_CHANNEL];
 	uint16_t vmeas2[ADC_SAMPLES_PER_CHANNEL];
-	ADC_Separate_Channels(buffADC, vmeas0, vmeas1, vmeas2);
+	uint32_t actualFreq = Sample_Steady_State(f0, buffADC, vmeas0, vmeas1, vmeas2);
 
 	*input = (phasor_t) {1, 0};
-	*output = Get_Phasor_2Sig(vmeas1, vmeas0, ADC_SAMPLES_PER_CHANNEL, ADC_SAMPLES_PER_CHANNEL, f0, Get_Sampling_Frequency());
+	*output = Get_Phasor_2Sig(vmeas1, vmeas0, ADC_SAMPLES_PER_CHANNEL, ADC_SAMPLES_PER_CHANNEL, actualFreq, Get_Sampling_Frequency());
 
 	return actualFreq;
 }
@@ -176,20 +175,37 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref)
 	 * WARNING: This is NOT OPTIMISED!!
 	 * I also don't know what to do with VMEAS2 for now..
 	 */
-	size_t nfrequencies = FREQ_PPDECADE * FREQ_NDECADE;
-	uint32_t frequencies[nfrequencies];
-	uint32_t frequencies_visited[nfrequencies];
-	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, nfrequencies, frequencies);
+	uint32_t frequencies[NFREQUENCIES];
+	uint32_t frequencies_visited[NFREQUENCIES];
+	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies);
 
-	for(size_t i = 0; i < nfrequencies; i++)
+	for(size_t i = 0; i < NFREQUENCIES; i++)
 	{
-		uint16_t vmeas0[ADC_SAMPLES_PER_CHANNEL];
-		uint16_t vmeas1[ADC_SAMPLES_PER_CHANNEL];
-		uint16_t vmeas2[ADC_SAMPLES_PER_CHANNEL];
-		frequencies_visited[i] = Get_Steady_State(frequencies[i], vmeas_buffer, vmeas0, vmeas1, vmeas2);
-		Sampling_Disable();
-		uint32_t fs = Get_Sampling_Frequency();
-		inputs[i] = Get_Phasor_1Sig(vmeas0, ADC_SAMPLES_PER_CHANNEL, frequencies_visited[i], fs);
-		outputs[i] = Get_Phasor_1Sig(vmeas1, ADC_SAMPLES_PER_CHANNEL, frequencies_visited[i], fs);
+//		uint16_t vmeas0[ADC_SAMPLES_PER_CHANNEL];
+//		uint16_t vmeas1[ADC_SAMPLES_PER_CHANNEL];
+//		uint16_t vmeas2[ADC_SAMPLES_PER_CHANNEL];
+//		frequencies_visited[i] = Get_Steady_State(frequencies[i], vmeas_buffer, vmeas0, vmeas1, vmeas2);
+//		Sampling_Disable();
+//		uint32_t fs = Get_Sampling_Frequency();
+//		inputs[i] = Get_Phasor_1Sig(vmeas0, ADC_SAMPLES_PER_CHANNEL, frequencies_visited[i], fs);
+//		outputs[i] = Get_Phasor_1Sig(vmeas1, ADC_SAMPLES_PER_CHANNEL, frequencies_visited[i], fs);
+
+		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies[i], vmeas_buffer, &inputs[i], &outputs[i]);
+	}
+}
+
+
+void Measurement_Routine(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], float Rref, uint32_t frequencies_visited[])
+{
+	uint32_t frequencies_wanted[NFREQUENCIES];
+	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
+
+	phasor_t v1 = {0,0};
+	phasor_t v2 = {0,0};
+
+	for(size_t i = 0; i < NFREQUENCIES; i++)
+	{
+		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], vmeas_buffer, &v1, &v2);
+		Zx_buff[i] = Calculate_Zx_Calibrated(v1, v2, Rref, Zsm_buff[i], Zom_buff[i]);
 	}
 }

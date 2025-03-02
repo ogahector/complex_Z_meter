@@ -100,6 +100,7 @@ void Error_Handler(void);
 #define FREQ_MIN 100
 #define FREQ_PPDECADE 50
 #define FREQ_NDECADE 3
+#define NFREQUENCIES ( FREQ_PPDECADE * FREQ_NDECADE )
 
 /* USER CODE END Private defines */
 
