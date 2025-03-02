@@ -33,7 +33,7 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include "sig_gen.h"
 #include "dual_spi_adc.h"
-#include "sampling.h"
+#include "dsp.h"
 #include <stdint.h>
 
 /* USER CODE END Includes */
@@ -95,6 +95,11 @@ void Error_Handler(void);
 #define ADC_BUSY_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
+
+#define FREQ_MAX 100e3
+#define FREQ_MIN 100
+#define FREQ_PPDECADE 50
+#define FREQ_NDECADE 3
 
 /* USER CODE END Private defines */
 

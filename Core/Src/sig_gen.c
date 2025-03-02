@@ -8,14 +8,14 @@
 
 #include "sig_gen.h"
 
-//extern uint32_t sine_wave_buffer[]; // Sine Wave Stored
+//extern uint16_t sine_wave_buffer[]; // Sine Wave Stored
 
-void Calculate_Sine_Wave(volatile uint32_t buffer[], int size)
+void Calculate_Sine_Wave(uint16_t buffer[], int size)
 {
     for (size_t i = 0; i < size; i++) {
         double sinangle = sin((2.0f * M_PI * i) / size); // Convert index to angle (radians)
         double scaled = 2047*sinangle;
-        buffer[i] = (uint32_t) ((int) (scaled + 2048)); // Scale to 0-4095
+        buffer[i] = (uint16_t) ((int) (scaled + 2048)); // Scale to 0-4095
     }
 }
 
@@ -24,31 +24,17 @@ void Fill_Sine_Buffer()
 	Calculate_Sine_Wave(sine_wave_buffer, DAC_LUT_SIZE);
 }
 
-void Enable_Sine_Gen()
+void Sig_Gen_Enable()
 {
-//	if(HAL_DAC_GetState(&hdac) != HAL_DAC_STATE_READY)
-//		return;
-	// Start TIM6 (triggers DAC)
 	HAL_TIM_Base_Start(&htim6);
-
-	// Start DAC1 with DMA (assumes DAC1 Channel 1)
-	// Also loads data into the DMA
-//	const uint32_t buffer[] = sine_wave_buffer;
-//	HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, sine_wave_buffer, SINE_LUT_SIZE, DAC_ALIGN_12B_R);
 }
 
-void Disable_Sine_Gen()
+void Sig_Gen_Disable()
 {
-//	if(__HAL_TIM_GET_COUNTER(&htim2) == 0)
-//		return;
-//	 Stop DAC
-//	HAL_DAC_Stop_DMA(&hdac, DAC_CHANNEL_1);
-
-	// Stop Timer
-	HAL_TIM_Base_Stop(&htim2);
+	HAL_TIM_Base_Stop(&htim6);
 }
 
-uint32_t Set_Timer2_Frequency(uint32_t f_sine)
+uint32_t Set_Timer6_Frequency(uint32_t f_sine)
 {
     // Calculate the desired timer update frequency.
     uint32_t f_update = f_sine * DAC_LUT_SIZE;
@@ -83,10 +69,10 @@ uint32_t Set_Timer2_Frequency(uint32_t f_sine)
     }
 
     // Set the timer registers:
-    __HAL_TIM_SET_PRESCALER(&htim2, bestPSC);
-    __HAL_TIM_SET_AUTORELOAD(&htim2, bestARR);
+    __HAL_TIM_SET_PRESCALER(&htim6, bestPSC);
+    __HAL_TIM_SET_AUTORELOAD(&htim6, bestARR);
     // Force an update event so that new PSC/ARR values are loaded immediately.
-    HAL_TIM_GenerateEvent(&htim2, TIM_EVENTSOURCE_UPDATE);
+    HAL_TIM_GenerateEvent(&htim6, TIM_EVENTSOURCE_UPDATE);
 
     // Return the actual timer update frequency (f_update_actual = F_TIMER_CLOCK / ((PSC+1)*(ARR+1)) )
     return F_TIMER_CLOCK / ((bestPSC + 1) * (bestARR + 1));

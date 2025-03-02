@@ -34,12 +34,13 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-//enum INSTRUMENT_STATE
-//{
-//	IDLE,
-//	CALIBRATING,
-//	MEASURING
-//};
+typedef enum __INSTRUMENT_STATE
+{
+	IDLE,
+	BUTTON_PRESS,
+	CALIBRATING,
+	MEASURING
+} INSTRUMENT_STATE;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -69,14 +70,20 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
-volatile uint32_t sine_wave_buffer[DAC_LUT_SIZE];
+uint16_t sine_wave_buffer[DAC_LUT_SIZE];
 uint16_t vmeas_buffer[ADC_BUFFER_SIZE];
-uint16_t vmeas2_buffer[2];
+//uint16_t vmeas1_buffer[1];
+//uint16_t vmeas2_buffer[1];
 
 //const uint32_t freq_max = 100e3;
 //const uint32_t freq_min = 100;
 //const uint8_t freq_ppdecade = 50;
 //uint32_t frequencies[3 * freq_ppdecade];
+
+INSTRUMENT_STATE STATE = IDLE;
+
+phasor_t OC_CAL = (phasor_t) {0, 0};
+phasor_t SC_CAL = (phasor_t) {0, 0};
 
 /* USER CODE END PV */
 
@@ -89,8 +96,8 @@ static void MX_DAC_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_SPI3_Init(void);
-static void MX_TIM6_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 bool buttonPress(void);
 HAL_StatusTypeDef TransmitString(char msg[]);
@@ -135,10 +142,9 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
 
-//  MX_USART2_UART_Init();
-//  TransmitString("\n");
-//  MX_TIM2_Init();
-//  MX_TIM6_Init();
+  MX_USART2_UART_Init();
+  TransmitString("\n");
+
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -149,22 +155,19 @@ int main(void)
   MX_USART2_UART_Init();
   MX_SPI2_Init();
   MX_SPI3_Init();
-  MX_TIM6_Init();
   MX_TIM2_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
 
   long long i = 0;
 
   // CALCULATE VALUES FOR SINE BUFFER DMA
   Fill_Sine_Buffer();
-//  for(size_t i = 0; i < DAC_LUT_SIZE; i++)
-//  {
-//	  sine_wave_buffer[i] = 2048;
-//  }
 
   // INITIALISE DAC DMA in the previous function
 
   // ADC DMA INIT in the previous function
+
 
   // GET DAC STATE ON STARTUP
   // Expected: BUSY
@@ -183,7 +186,9 @@ int main(void)
   sprintf(msg3, "Current TIM Freq: %lu", GetTimXCurrentFrequency(&htim2));
   TransmitStringLn(msg3);
 
-  HAL_TIM_Base_Start(&htim2);
+  Sampling_Enable();
+
+  uint32_t startTime;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -191,15 +196,71 @@ int main(void)
   while (1)
   {
 	  i++;
-	  Enable_Sine_Gen();
+
+	  switch(STATE)
+	  {
+	  case(IDLE):
+		if(buttonPress())
+		{
+			startTime = HAL_GetTick();
+			HAL_Delay(200);
+			STATE = BUTTON_PRESS;
+		}
+		else STATE = IDLE;
+
+	    break;
+
+	  case(BUTTON_PRESS):
+		TransmitStringLn("BUTTON PRESS...");
+		// 2 second timeout
+		if(HAL_GetTick() - startTime > 2000)
+		{
+			TransmitStringLn("Starting a Measurement! \n"
+					"Please ensure your DUT is attached before beginning this\n");
+			STATE = MEASURING;
+		}
+		else if(buttonPress())
+		{
+			TransmitStringLn("Beginning Calibration!\n"
+					"Please follow the instructions closely...");
+			STATE = CALIBRATING;
+		}
+		else STATE = BUTTON_PRESS;
+		break;
+
+	  case(CALIBRATING):
+		TransmitStringLn("Beginning Calibration...");
+	    TransmitStringLn("Please Connect a Short Circuit (S/C) DUT across the fixtures.");
+	    TransmitStringLn("Once you have done so, please press the blue button");
+
+	    while(!buttonPress()) // Poll at 50Hz
+	    	HAL_Delay(20);
+
+
+		STATE = IDLE;
+		HAL_Delay(500);
+		break;
+
+	  case(MEASURING):
+		TransmitStringLn("MEASURING...");
+		STATE = IDLE;
+	  	HAL_Delay(500);
+		break;
+
+
+	  default:
+		  STATE = IDLE;
+		  break;
+	  }
+	  Sig_Gen_Enable();
 
 	  if(buttonPress())
 	  {
 		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-		  TransmitUInt16Buffer(vmeas_buffer, ADC_BUFFER_SIZE);
-//		  TransmitUInt16Buffer(vmeas2_buffer, 1);
-		  HAL_Delay(100);
+//		  TransmitUInt16Buffer(vmeas_buffer, ADC_BUFFER_SIZE);
+
+//		  HAL_Delay(100);
 	  }
 	  else
 	  {
@@ -376,7 +437,7 @@ static void MX_DAC_Init(void)
 
   /** DAC channel OUT1 config
   */
-  sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T4_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_DISABLE;
   if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
@@ -571,14 +632,7 @@ static void MX_TIM6_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM6_Init 2 */
-//  if(HAL_TIM_Base_Start(&htim6) != HAL_OK)
-//  {
-//	  TransmitStringLn("TIM6 SUCCESSFULLY INITIALISED");
-//  }
-//  else
-//  {
-//	  TransmitStringLn("ERROR INITIALISING TIM6");
-//  }
+
   /* USER CODE END TIM6_Init 2 */
 
 }
