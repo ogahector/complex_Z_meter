@@ -34,10 +34,24 @@ void Sig_Gen_Disable()
 	HAL_TIM_Base_Stop(&htim6);
 }
 
+uint32_t Get_Signal_Frequency()
+{
+	uint32_t timer_clk = HAL_RCC_GetPCLK1Freq();
+
+	uint32_t psc = __HAL_TIM_GET_ICPRESCALER(&htim6, TIM6_BASE);
+	uint32_t arr = __HAL_TIM_GET_AUTORELOAD(&htim6);
+
+
+	// Compute update frequency: f_update = timer_clk / ((PSC+1) * (ARR+1))
+	uint32_t f_update = timer_clk / ((psc + 1) * (arr + 1));
+
+	return (uint32_t) f_update / DAC_LUT_SIZE;
+}
+
 uint32_t Set_Timer6_Frequency(uint32_t f_sine)
 {
     // Calculate the desired timer update frequency.
-    uint32_t f_update = f_sine * DAC_LUT_SIZE;
+    uint32_t f_update = f_sine;
 
     // Calculate the ideal division factor.
     uint32_t idealDiv = F_TIMER_CLOCK / f_update;
@@ -78,6 +92,11 @@ uint32_t Set_Timer6_Frequency(uint32_t f_sine)
     return F_TIMER_CLOCK / ((bestPSC + 1) * (bestARR + 1));
 }
 
+uint32_t Set_Signal_Frequency(uint32_t freq)
+{
+	return (uint32_t) Set_Timer6_Frequency( (uint32_t) DAC_LUT_SIZE * freq) / DAC_LUT_SIZE;
+}
+
 void Calculate_Frequencies(long fstart, long fstop, uint8_t points_per_decade, int total_points, uint32_t frequencies[])
 {
     double f_min = fstart;     // start frequency (Hz)
@@ -98,4 +117,6 @@ void Calculate_Frequencies(long fstart, long fstop, uint8_t points_per_decade, i
 //        Set_Timer6_Frequency(f_desired);
         frequencies[i] = f_desired;
     }
+
+//    TransmitUInt32Buffer(frequencies, total_points);
 }

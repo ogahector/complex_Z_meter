@@ -108,6 +108,8 @@ HAL_StatusTypeDef TransmitUInt16Buffer(uint16_t buffer[], size_t size);
 HAL_StatusTypeDef TransmitUInt8Buffer(uint8_t buffer[], size_t size);
 HAL_StatusTypeDef TransmitNum(float num);
 HAL_StatusTypeDef TransmitNumLn(float num);
+HAL_StatusTypeDef TransmitPhasor(phasor_t phasor);
+HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor);
 uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim);
 
 /* USER CODE END PFP */
@@ -178,17 +180,21 @@ int main(void)
   // GET TIM STATE ON STARTUP
   // Expected: READY
   char msg2[32];
-  sprintf(msg2, "Current TIM State: %d", HAL_TIMEx_GetChannelNState(&htim2, TIM2_BASE));
+  sprintf(msg2, "Current TIM2 State: %d", HAL_TIMEx_GetChannelNState(&htim2, TIM2_BASE));
   TransmitStringLn(msg2);
 
   // GET CURRENT FREQUENCY
   char msg3[64];
-  sprintf(msg3, "Current TIM Freq: %lu", GetTimXCurrentFrequency(&htim2));
+  sprintf(msg3, "Current TIM2 Freq: %lu", GetTimXCurrentFrequency(&htim2));
   TransmitStringLn(msg3);
 
   Sampling_Enable();
 
   uint32_t startTime;
+
+//  phasor_t ZX_RAW[NFREQUENCIES];
+  phasor_t inputs[NFREQUENCIES];
+  phasor_t outputs[NFREQUENCIES];
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -196,7 +202,7 @@ int main(void)
   while (1)
   {
 	  i++;
-
+	  /*
 	  switch(STATE)
 	  {
 	  case(IDLE):
@@ -211,7 +217,6 @@ int main(void)
 	    break;
 
 	  case(BUTTON_PRESS):
-		TransmitStringLn("BUTTON PRESS...");
 		// 2 second timeout
 		if(HAL_GetTick() - startTime > 2000)
 		{
@@ -252,15 +257,30 @@ int main(void)
 		  STATE = IDLE;
 		  break;
 	  }
-	  Sig_Gen_Enable();
+	  */
+
+
+
+//	  Sig_Gen_Enable();
+//	  HAL_TIM_Base_Start(&htim6);
 
 	  if(buttonPress())
 	  {
 		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+		  Sig_Gen_Enable();
+//		  TransmitUInt16Buffer(sine_wave_buffer, DAC_LUT_SIZE);
 
-//		  TransmitUInt16Buffer(vmeas_buffer, ADC_BUFFER_SIZE);
+		  Get_All_Raw_Phasors(inputs, outputs, 1000);
+		  TransmitStringLn("DONE!");
+		  HAL_Delay(1000);
 
-//		  HAL_Delay(100);
+
+
+		  for(int i = 0; i < NFREQUENCIES; i++)
+		  {
+			  TransmitPhasorLn(outputs[i]);
+		  }
+		  HAL_Delay(100);
 	  }
 	  else
 	  {
@@ -274,6 +294,7 @@ int main(void)
   }
   /* USER CODE END 3 */
 }
+
 
 /**
   * @brief System Clock Configuration
@@ -437,7 +458,7 @@ static void MX_DAC_Init(void)
 
   /** DAC channel OUT1 config
   */
-  sConfig.DAC_Trigger = DAC_TRIGGER_T4_TRGO;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_DISABLE;
   if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
@@ -619,7 +640,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 0;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 44;
+  htim6.Init.Period = 449;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -901,6 +922,20 @@ HAL_StatusTypeDef TransmitNumLn(float num)
 {
 	char msg[32];
 	sprintf(msg, "%f\r\n", num);
+	return TransmitString(msg);
+}
+
+HAL_StatusTypeDef TransmitPhasor(phasor_t phasor)
+{
+	char msg[32];
+	sprintf(msg, "Phasor: %.3f, %.3f\r", phasor.magnitude, phasor.phaserad);
+	return TransmitString(msg);
+}
+
+HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor)
+{
+	char msg[32];
+	sprintf(msg, "Phasor: %.3f, %.3f\r\n", phasor.magnitude, phasor.phaserad);
 	return TransmitString(msg);
 }
 

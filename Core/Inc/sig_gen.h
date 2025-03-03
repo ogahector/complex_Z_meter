@@ -14,7 +14,7 @@
 
 #define F_TIMER_CLOCK 45000000  // APB1 clock for Timer6
 #define DAC_RESOLUTION_BITS 12  // 12-bit DAC
-#define DAC_LUT_SIZE 100     // Size of the sine wave lookup table
+#define DAC_LUT_SIZE 50     // Size of the sine wave lookup table
 
 
 extern uint16_t sine_wave_buffer[DAC_LUT_SIZE];  // Lookup table storage
@@ -32,6 +32,8 @@ void Sig_Gen_Enable();
 
 // Function to disable sine wave generation
 void Sig_Gen_Disable();
+
+uint32_t Get_Signal_Frequency();
 
 // Function to set Timer6 frequency
 uint32_t Set_Timer6_Frequency(uint32_t f_desired);

@@ -96,7 +96,7 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
-#define FREQ_MAX 100e3
+#define FREQ_MAX 100000
 #define FREQ_MIN 100
 #define FREQ_PPDECADE 50
 #define FREQ_NDECADE 3

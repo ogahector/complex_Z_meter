@@ -10,7 +10,7 @@
 
 #include "main.h"
 
-#define ADC_SAMPLES_PER_CHANNEL (10000)
+#define ADC_SAMPLES_PER_CHANNEL (5000)
 #define ADC_BUFFER_SIZE (3*ADC_SAMPLES_PER_CHANNEL)
 //#define ADC_BUFFER_SIZE 3
 

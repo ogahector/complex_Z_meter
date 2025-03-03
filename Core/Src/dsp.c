@@ -7,16 +7,31 @@
 
 #include <dsp.h>
 #include "math.h"
+#include "sig_gen.h"
 
 
 void ADC_Separate_Channels(uint16_t buffADC[], uint16_t buffA[], uint16_t buffB[], uint16_t buffC[])
 {
-	for(size_t i = 0; i < ADC_SAMPLES_PER_CHANNEL; i += 3)
-	{
-		buffA[i] = buffADC[ 3*i ];
-		buffB[i] = buffADC[ 3*i + 1 ];
-		buffC[i] = buffADC[ 3*i + 2 ];
-	}
+//	for(size_t i = 0; i < ADC_SAMPLES_PER_CHANNEL; i += 3)
+//	{
+//		buffA[i] = buffADC[ 3*i ];
+//		buffB[i] = buffADC[ 3*i + 1 ];
+//		buffC[i] = buffADC[ 3*i + 2 ];
+//	}
+
+    for(size_t i = 0; i < ADC_BUFFER_SIZE; i++) {
+        switch(i % 3) {
+            case 0:  // Channel 0
+                buffA[i/3] = buffADC[i];
+                break;
+            case 1:  // Channel 1
+                buffB[i/3] = buffADC[i];
+                break;
+            case 2:  // Channel 2
+                buffC[i/3] = buffADC[i];
+                break;
+        }
+    }
 }
 
 void Sampling_Enable()
@@ -51,13 +66,13 @@ phasor_t Get_Phasor_1Sig(uint16_t sig[], size_t len, uint32_t f0, uint32_t fs)
 	 * For an actual phasor, use Get_Output_Phasor
 	 * to get a phasor with respect to a reference.
 	 */
-	double I, Q;
+	double I = 0.0, Q = 0.0;
 
 	for(size_t i = 0; i < len; i++)
 	{
 		double ang_step = 2.0 * M_PI * f0 * i / fs;
-		double ref_cos = cosf(ang_step);
-		double ref_sin = sinf(ang_step);
+		double ref_cos = cos(ang_step);
+		double ref_sin = sin(ang_step);
 
 		I += sig[i] * ref_cos;
 		Q += sig[i] * ref_sin;
@@ -139,17 +154,15 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, float Rref, phasor_t 
 }
 
 
-
-
 uint32_t Sample_Steady_State(uint32_t f0, uint16_t buffADC[], uint16_t vmeas0[], uint16_t vmeas1[], uint16_t vmeas2[])
 {
 	Sampling_Disable();
-	uint32_t actualFreq = Set_Timer6_Frequency(f0);
-	HAL_Delay(1); // ms
+	uint32_t actualFreq = Set_Signal_Frequency(f0);
+//	HAL_Delay(1); // ms
 	Sampling_Enable();
 
 	// Wait 10x a period to get a steady state
-	HAL_Delay( (uint32_t) 10*1000/f0 );
+	HAL_Delay( (uint32_t) 110 );
 
 	ADC_Separate_Channels(buffADC, vmeas0, vmeas1, vmeas2);
 
@@ -164,7 +177,11 @@ uint32_t Sample_Steady_State_Phasors(uint32_t f0, uint16_t buffADC[], phasor_t* 
 	uint32_t actualFreq = Sample_Steady_State(f0, buffADC, vmeas0, vmeas1, vmeas2);
 
 	*input = (phasor_t) {1, 0};
-	*output = Get_Phasor_2Sig(vmeas1, vmeas0, ADC_SAMPLES_PER_CHANNEL, ADC_SAMPLES_PER_CHANNEL, actualFreq, Get_Sampling_Frequency());
+	*output = Get_Phasor_2Sig(vmeas1, vmeas0, ADC_SAMPLES_PER_CHANNEL, ADC_SAMPLES_PER_CHANNEL,
+			Get_Signal_Frequency(), Get_Sampling_Frequency());
+
+//	*input = Get_Phasor_1Sig(vmeas0, ADC_SAMPLES_PER_CHANNEL, Get_Signal_Frequency(), Get_Sampling_Frequency());
+//	*output = Get_Phasor_1Sig(vmeas1, ADC_SAMPLES_PER_CHANNEL, Get_Signal_Frequency(), Get_Sampling_Frequency());
 
 	return actualFreq;
 }
@@ -192,6 +209,8 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref)
 
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies[i], vmeas_buffer, &inputs[i], &outputs[i]);
 	}
+
+	TransmitUInt32Buffer(frequencies_visited, NFREQUENCIES);
 }
 
 
