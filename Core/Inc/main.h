@@ -34,6 +34,7 @@ extern "C" {
 #include "sig_gen.h"
 #include "dual_spi_adc.h"
 #include "dsp.h"
+#include "relay.h"
 #include <stdint.h>
 
 /* USER CODE END Includes */
@@ -79,6 +80,12 @@ void Error_Handler(void);
 #define ADC_RD_GPIO_Port GPIOA
 #define VMEAS1_Pin GPIO_PIN_4
 #define VMEAS1_GPIO_Port GPIOC
+#define RREF_SEL0_Pin GPIO_PIN_13
+#define RREF_SEL0_GPIO_Port GPIOB
+#define RREF_SEL1_Pin GPIO_PIN_14
+#define RREF_SEL1_GPIO_Port GPIOB
+#define RREF_SEL2_Pin GPIO_PIN_15
+#define RREF_SEL2_GPIO_Port GPIOB
 #define ADC_M0_Pin GPIO_PIN_7
 #define ADC_M0_GPIO_Port GPIOC
 #define ADC_M1_Pin GPIO_PIN_9
@@ -87,8 +94,6 @@ void Error_Handler(void);
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
-#define SPI2_MISO_Pin GPIO_PIN_11
-#define SPI2_MISO_GPIO_Port GPIOC
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
 #define ADC_BUSY_Pin GPIO_PIN_6

@@ -101,15 +101,19 @@ static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 bool buttonPress(void);
 HAL_StatusTypeDef TransmitString(char msg[]);
+HAL_StatusTypeDef TransmitStringRaw(char msg[]);
 HAL_StatusTypeDef TransmitStringLn(char msg[]);
 HAL_StatusTypeDef TransmitIntBuffer(int buffer[], size_t size);
 HAL_StatusTypeDef TransmitUInt32Buffer(uint32_t buffer[], size_t size);
 HAL_StatusTypeDef TransmitUInt16Buffer(uint16_t buffer[], size_t size);
+HAL_StatusTypeDef TransmitTwoUInt16Buffer(uint16_t buffer1[], uint16_t buffer2[], size_t size);
 HAL_StatusTypeDef TransmitUInt8Buffer(uint8_t buffer[], size_t size);
+HAL_StatusTypeDef TransmitUInt16BufferAsRaw(uint16_t buffer[], size_t size);
 HAL_StatusTypeDef TransmitNum(float num);
 HAL_StatusTypeDef TransmitNumLn(float num);
 HAL_StatusTypeDef TransmitPhasor(phasor_t phasor);
 HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor);
+void ReceiveMessage(char msg[], size_t len);
 uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim);
 
 /* USER CODE END PFP */
@@ -268,6 +272,7 @@ int main(void)
 	  {
 		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 		  Sig_Gen_Enable();
+		  TransmitStringLn("Starting Measuring!");
 //		  TransmitUInt16Buffer(sine_wave_buffer, DAC_LUT_SIZE);
 
 		  Get_All_Raw_Phasors(inputs, outputs, 1000);
@@ -294,7 +299,6 @@ int main(void)
   }
   /* USER CODE END 3 */
 }
-
 
 /**
   * @brief System Clock Configuration
@@ -640,7 +644,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 0;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 449;
+  htim6.Init.Period = 44;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -733,7 +737,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15|GPIO_PIN_7, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, RREF_SEL0_Pin|RREF_SEL1_Pin|RREF_SEL2_Pin|GPIO_PIN_7, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -760,8 +764,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB13 PB14 PB15 PB7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15|GPIO_PIN_7;
+  /*Configure GPIO pins : RREF_SEL0_Pin RREF_SEL1_Pin RREF_SEL2_Pin PB7 */
+  GPIO_InitStruct.Pin = RREF_SEL0_Pin|RREF_SEL1_Pin|RREF_SEL2_Pin|GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -814,6 +818,11 @@ HAL_StatusTypeDef TransmitString(char msg[])
 		return HAL_ERROR;
 	}
 	return HAL_UART_Transmit(&huart2, (const unsigned char*) "\r", (uint16_t) strlen("\r"), 5);
+}
+
+HAL_StatusTypeDef TransmitStringRaw(char msg[])
+{
+	return HAL_UART_Transmit(&huart2, msg, (uint16_t) strlen(msg), 5);
 }
 
 
@@ -889,6 +898,34 @@ HAL_StatusTypeDef TransmitUInt16Buffer(uint16_t buffer[], size_t size)
     return HAL_OK;
 }
 
+HAL_StatusTypeDef TransmitTwoUInt16Buffer(uint16_t buffer1[], uint16_t buffer2[], size_t size)
+{
+    char msg[32];  // Buffer to hold the formatted string
+
+//    TransmitString("\n");
+    for (size_t i = 0; i < size-1; i++)
+    {
+        // Format the integer value into a string followed by a newline
+        sprintf(msg, "%u %u ", buffer1[i], buffer2[i]);
+
+        // Transmit the formatted string over USART
+        if (TransmitStringRaw(msg) != HAL_OK)
+        {
+            return HAL_ERROR;
+        }
+    }
+
+    sprintf(msg, "%u %u", buffer1[size-1], buffer2[size-1]);
+
+    // Transmit the formatted string over USART
+    if (TransmitStringRaw(msg) != HAL_OK)
+    {
+    return HAL_ERROR;
+    }
+
+    return HAL_OK;
+}
+
 HAL_StatusTypeDef TransmitUInt8Buffer(uint8_t buffer[], size_t size)
 {
     char msg[32];  // Buffer to hold the formatted string
@@ -909,6 +946,11 @@ HAL_StatusTypeDef TransmitUInt8Buffer(uint8_t buffer[], size_t size)
     return HAL_OK;
 }
 
+HAL_StatusTypeDef TransmitUInt16BufferAsRaw(uint16_t buffer[], size_t size)
+{
+	return HAL_UART_Transmit(&huart2, buffer, size, 10);
+}
+
 HAL_StatusTypeDef TransmitNum(float num)
 {
 	char msg[32];
@@ -916,6 +958,13 @@ HAL_StatusTypeDef TransmitNum(float num)
 	sprintf(msg, "%f\r", num);
 
 	return TransmitString(msg);
+}
+
+HAL_StatusTypeDef TransmitUInt32Raw(uint32_t num)
+{
+	char msg[32];
+	sprintf(msg, "%u", num);
+	return TransmitStringRaw(msg);
 }
 
 HAL_StatusTypeDef TransmitNumLn(float num)
@@ -937,6 +986,11 @@ HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor)
 	char msg[32];
 	sprintf(msg, "Phasor: %.3f, %.3f\r\n", phasor.magnitude, phasor.phaserad);
 	return TransmitString(msg);
+}
+
+void ReceiveMessage(char msg[], size_t len)
+{
+	HAL_UART_Receive(&huart2, msg, len, 1);
 }
 
 uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim)

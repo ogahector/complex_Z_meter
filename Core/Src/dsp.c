@@ -156,13 +156,14 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, float Rref, phasor_t 
 
 uint32_t Sample_Steady_State(uint32_t f0, uint16_t buffADC[], uint16_t vmeas0[], uint16_t vmeas1[], uint16_t vmeas2[])
 {
-	Sampling_Disable();
+//	Sampling_Disable();
 	uint32_t actualFreq = Set_Signal_Frequency(f0);
 //	HAL_Delay(1); // ms
 	Sampling_Enable();
 
-	// Wait 10x a period to get a steady state
-	HAL_Delay( (uint32_t) 110 );
+	// Wait enough to fill the buffer
+	HAL_Delay( (uint32_t) 1000 * ADC_SAMPLES_PER_CHANNEL / Get_Sampling_Frequency());
+	Sampling_Disable();
 
 	ADC_Separate_Channels(buffADC, vmeas0, vmeas1, vmeas2);
 
@@ -182,6 +183,11 @@ uint32_t Sample_Steady_State_Phasors(uint32_t f0, uint16_t buffADC[], phasor_t* 
 
 //	*input = Get_Phasor_1Sig(vmeas0, ADC_SAMPLES_PER_CHANNEL, Get_Signal_Frequency(), Get_Sampling_Frequency());
 //	*output = Get_Phasor_1Sig(vmeas1, ADC_SAMPLES_PER_CHANNEL, Get_Signal_Frequency(), Get_Sampling_Frequency());
+	TransmitStringRaw("Measurement:Freq "); TransmitUInt32Raw(actualFreq); TransmitStringRaw(" ");
+	TransmitUInt32Raw(Get_Sampling_Frequency()); TransmitStringRaw(" ");
+	TransmitTwoUInt16Buffer(vmeas0, vmeas1, ADC_SAMPLES_PER_CHANNEL);
+//	TransmitUInt16BufferAsRaw(vmeas0, ADC_SAMPLES_PER_CHANNEL);
+	TransmitStringLn(" ");
 
 	return actualFreq;
 }
