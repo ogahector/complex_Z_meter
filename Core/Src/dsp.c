@@ -148,7 +148,7 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref)
 	uint32_t frequencies_visited[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies);
 
-	// 1e6 WORKS-ish
+	// 1e6 WORKS-ish - use 500k is better
 	// This may be the main bottleneck
 	Set_Sampling_Frequency(1000000);
 	// Initial sampling to give a baseline and fill the system caps
