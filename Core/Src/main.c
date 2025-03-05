@@ -72,6 +72,8 @@ UART_HandleTypeDef huart2;
 
 uint16_t sine_wave_buffer[DAC_LUT_SIZE];
 uint16_t vmeas_buffer[ADC_BUFFER_SIZE];
+
+
 //uint16_t vmeas1_buffer[1];
 //uint16_t vmeas2_buffer[1];
 
@@ -115,6 +117,7 @@ HAL_StatusTypeDef TransmitPhasor(phasor_t phasor);
 HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor);
 void ReceiveMessage(char msg[], size_t len);
 uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim);
+
 
 /* USER CODE END PFP */
 
@@ -378,13 +381,13 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = ENABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
   hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T2_TRGO;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.NbrOfConversion = 3;
-  hadc1.Init.DMAContinuousRequests = ENABLE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
@@ -420,15 +423,15 @@ static void MX_ADC1_Init(void)
   }
   /* USER CODE BEGIN ADC1_Init 2 */
 
-  if(HAL_ADC_Start_DMA(&hadc1, vmeas_buffer, ADC_BUFFER_SIZE) != HAL_OK)
-  {
-	  TransmitStringLn("ERROR SETTING UP ADC1 DMA");
-  }
-  else
-  {
-	  TransmitStringLn("ADC1 DMA SUCCESSFULLY INITIALISED");
-  }
 
+//  if(HAL_ADC_Start_DMA(&hadc1, vmeas_buffer, ADC_BUFFER_SIZE) != HAL_OK)
+//  {
+//	  TransmitStringLn("ERROR SETTING UP ADC1 DMA");
+//  }
+//  else
+//  {
+//	  TransmitStringLn("ADC1 DMA SUCCESSFULLY INITIALISED");
+//  }
 
   /* USER CODE END ADC1_Init 2 */
 
@@ -822,9 +825,8 @@ HAL_StatusTypeDef TransmitString(char msg[])
 
 HAL_StatusTypeDef TransmitStringRaw(char msg[])
 {
-	return HAL_UART_Transmit(&huart2, msg, (uint16_t) strlen(msg), 5);
+	return HAL_UART_Transmit(&huart2, msg, (uint16_t) strlen(msg), HAL_MAX_DELAY);
 }
-
 
 HAL_StatusTypeDef TransmitStringLn(char msg[])
 {
@@ -1005,6 +1007,8 @@ uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim)
 	uint32_t f_update = timer_clk / ((psc + 1) * (arr + 1));
 	return f_update;
 }
+
+
 
 /* USER CODE END 4 */
 

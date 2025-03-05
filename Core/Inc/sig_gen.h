@@ -12,7 +12,7 @@
 #include <math.h>
 #include <stdint.h>
 
-#define F_TIMER_CLOCK 45000000  // APB1 clock for Timer6
+#define F_SIG_TIMER (2 * HAL_RCC_GetPCLK1Freq())  // APB1 clock for Timer6
 #define DAC_RESOLUTION_BITS 12  // 12-bit DAC
 #define DAC_LUT_SIZE 50     // Size of the sine wave lookup table
 

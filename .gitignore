@@ -9,8 +9,13 @@ STM32F446RETX_RAM.ld
 *.raw
 *.asv
 *.exe
+*.cfg
 /*.settings
 /Binaries
+Includes
+/Lib
+/Scripts
+__pycache__
 # /Includes
 # /Drivers
 /Debug

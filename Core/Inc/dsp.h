@@ -12,6 +12,8 @@
 
 #define ADC_SAMPLES_PER_CHANNEL (5000)
 #define ADC_BUFFER_SIZE (3*ADC_SAMPLES_PER_CHANNEL)
+#define F_SAMPLE_TIMER (2 * HAL_RCC_GetPCLK1Freq())
+#define NCONVERSIONCYCLES 45
 //#define ADC_BUFFER_SIZE 3
 
 extern ADC_HandleTypeDef hadc1;
@@ -35,6 +37,10 @@ typedef struct __freq_t {
 
 } freq_t;
 
+void HAL_ADC_HalfConvCpltCallback(ADC_HandleTypeDef* hadc);
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
+
+void ADC_SampleSingleShot(void);
 
 /**
  * @brief Separates a buffer of ADC samples into three channel-specific buffers.
@@ -61,6 +67,7 @@ void Sampling_Disable(void);
  */
 uint32_t Get_Sampling_Frequency(void);
 
+uint32_t Set_Sampling_Frequency(uint32_t f_sine);
 /**
  * @brief Calculates the phasor of a single signal using the IQ method.
  * @param sig: Input signal buffer (ADC samples).
@@ -120,7 +127,7 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, float Rref, phasor_t 
  * @param vmeas2: Output buffer for channel 2.
  * @return The actual frequency (Hz) at which the ADC is sampling.
  */
-uint32_t Sample_Steady_State(uint32_t f0, uint16_t buffADC[], uint16_t vmeas0[], uint16_t vmeas1[], uint16_t vmeas2[]);
+uint32_t Sample_Steady_State(uint32_t f0, uint16_t vmeas0[], uint16_t vmeas1[], uint16_t vmeas2[]);
 
 /**
  * @brief Samples steady-state phasors from the ADC data.
@@ -130,7 +137,7 @@ uint32_t Sample_Steady_State(uint32_t f0, uint16_t buffADC[], uint16_t vmeas0[],
  * @param output: Pointer to a phasor_t to store the output phasor.
  * @return The actual frequency (Hz) at which the ADC is sampling.
  */
-uint32_t Sample_Steady_State_Phasors(uint32_t f0, uint16_t buffADC[], phasor_t* input, phasor_t* output);
+uint32_t Sample_Steady_State_Phasors(uint32_t f0, phasor_t* input, phasor_t* output);
 
 /**
  * @brief Populates arrays of raw phasors for input and output signals.

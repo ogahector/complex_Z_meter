@@ -8,17 +8,71 @@
 #include <dsp.h>
 #include "math.h"
 #include "sig_gen.h"
+#include "string.h"
+
+uint8_t adcDmaTransferComplete;
+uint8_t adcDmaHalfTransfer;
+uint16_t vmeas_buffer_copy[ADC_BUFFER_SIZE];
+uint16_t vmeas0_copy[ADC_SAMPLES_PER_CHANNEL];
+uint16_t vmeas1_copy[ADC_SAMPLES_PER_CHANNEL];
+uint16_t vmeas2_copy[ADC_SAMPLES_PER_CHANNEL];
+
+void HAL_ADC_HalfConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	if(hadc->Instance == ADC1)
+	{
+		adcDmaHalfTransfer = 1;
+	}
+}
+
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	if(hadc->Instance == ADC1)
+	{
+		adcDmaTransferComplete = 1;
+		Sampling_Disable();
+	}
+}
+
+void ADC_SampleSingleShot(void)
+{
+	adcDmaTransferComplete = 0;
+	adcDmaHalfTransfer = 0;
+
+//	Sig_Gen_Enable();
+//	Sampling_Enable();
+////	HAL_Delay(1);
+    if (HAL_ADC_Start_DMA(&hadc1, (uint32_t *) vmeas_buffer, ADC_BUFFER_SIZE) != HAL_OK)
+    {
+//        Error_Handler(); // or handle error
+    	while(1) TransmitStringLn("BAD DMA START");
+    }
+
+    uint32_t timeout = 1000 * ADC_BUFFER_SIZE / Get_Sampling_Frequency() + HAL_GetTick();
+
+    while(adcDmaTransferComplete == 0)
+    {
+    	__WFI();
+    	if(HAL_GetTick() > timeout)
+    	{
+    		TransmitUInt32Raw((uint32_t) adcDmaTransferComplete);
+    		break; // In case the interrupt is missed
+    	}
+    	TransmitStringLn(adcDmaHalfTransfer ? "DMATRANSFERHALFCOMPLETE" : "DMATRANSFERNOTCOMPLETE");
+    	// Wait BLOCKING to allow for full single shot DMA transfer
+    }
+
+	memcpy(vmeas_buffer_copy, vmeas_buffer, ADC_BUFFER_SIZE * sizeof(uint16_t));
+
+//    Sampling_Disable();
+//    Sig_Gen_Enable();
+//    HAL_ADC_Stop_DMA(&hadc1);
+}
 
 
 void ADC_Separate_Channels(uint16_t buffADC[], uint16_t buffA[], uint16_t buffB[], uint16_t buffC[])
 {
-//	for(size_t i = 0; i < ADC_SAMPLES_PER_CHANNEL; i += 3)
-//	{
-//		buffA[i] = buffADC[ 3*i ];
-//		buffB[i] = buffADC[ 3*i + 1 ];
-//		buffC[i] = buffADC[ 3*i + 2 ];
-//	}
-
     for(size_t i = 0; i < ADC_BUFFER_SIZE; i++) {
         switch(i % 3) {
             case 0:  // Channel 0
@@ -34,29 +88,175 @@ void ADC_Separate_Channels(uint16_t buffADC[], uint16_t buffA[], uint16_t buffB[
     }
 }
 
-void Sampling_Enable()
+uint32_t Sample_Steady_State(uint32_t f0, uint16_t vmeas0[], uint16_t vmeas1[], uint16_t vmeas2[])
+{
+	Sampling_Disable();
+	Sig_Gen_Disable();
+	uint32_t actualFreq = Set_Signal_Frequency(f0);
+
+//	uint32_t waitingTimeSeconds = 10 * 1000 / Get_Signal_Frequency();
+//	uint32_t fillTimeMs = (1000.0f * ADC_BUFFER_SIZE) / Get_Sampling_Frequency();
+//	HAL_Delay(1); // ms
+	Sampling_Enable();
+	Sig_Gen_Enable();
+
+	// Wait enough to fill the buffer
+//	HAL_Delay( (uint32_t) 1000 * Get_Sampling_Frequency() / (2*M_PI*Get_Signal_Frequency() * ADC_SAMPLES_PER_CHANNEL ));
+//	HAL_Delay( (uint32_t) ADC_SAMPLES_PER_CHANNEL * 1000 /( Get_Sampling_Frequency() ));
+//	HAL_Delay( fillTimeMs + 1 );
+
+	ADC_SampleSingleShot();
+
+	ADC_Separate_Channels(vmeas_buffer_copy, vmeas0, vmeas1, vmeas2);
+
+	Sampling_Disable();
+	Sig_Gen_Disable();
+
+
+	return actualFreq;
+}
+
+uint32_t Sample_Steady_State_Phasors(uint32_t f0, phasor_t* input, phasor_t* output)
+{
+	uint16_t vmeas0[ADC_SAMPLES_PER_CHANNEL];
+	uint16_t vmeas1[ADC_SAMPLES_PER_CHANNEL];
+	uint16_t vmeas2[ADC_SAMPLES_PER_CHANNEL];
+	uint32_t actualFreq = Sample_Steady_State(f0, vmeas0, vmeas1, vmeas2);
+
+	*input = (phasor_t) {1, 0};
+	*output = Get_Phasor_2Sig(vmeas1, vmeas0, ADC_SAMPLES_PER_CHANNEL, ADC_SAMPLES_PER_CHANNEL,
+			Get_Signal_Frequency(), Get_Sampling_Frequency());
+
+//	*input = Get_Phasor_1Sig(vmeas0, ADC_SAMPLES_PER_CHANNEL, Get_Signal_Frequency(), Get_Sampling_Frequency());
+//	*output = Get_Phasor_1Sig(vmeas1, ADC_SAMPLES_PER_CHANNEL, Get_Signal_Frequency(), Get_Sampling_Frequency());
+	TransmitStringRaw("Measurement:Freq "); TransmitUInt32Raw(actualFreq); TransmitStringRaw(" ");
+	TransmitUInt32Raw(Get_Sampling_Frequency()); TransmitStringRaw(" ");
+	TransmitTwoUInt16Buffer(vmeas0, vmeas1, ADC_SAMPLES_PER_CHANNEL);
+//	TransmitUInt16BufferAsRaw(vmeas0, ADC_SAMPLES_PER_CHANNEL);
+	TransmitStringLn(" ");
+
+	return actualFreq;
+}
+
+void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref)
+{
+	/*
+	 * WARNING: This is NOT OPTIMISED!!
+	 * I also don't know what to do with VMEAS2 for now..
+	 */
+	uint32_t frequencies[NFREQUENCIES];
+	uint32_t frequencies_visited[NFREQUENCIES];
+	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies);
+
+	// 1e6 WORKS-ish
+	// This may be the main bottleneck
+	Set_Sampling_Frequency(1000000);
+	// Initial sampling to give a baseline and fill the system caps
+	// This is a good fix! Verified in practice
+	ADC_SampleSingleShot();
+
+	for(size_t i = 0; i < NFREQUENCIES; i++)
+//	for(size_t i = NFREQUENCIES - 1; i >= 0; i++)
+	{
+//		uint16_t vmeas0[ADC_SAMPLES_PER_CHANNEL];
+//		uint16_t vmeas1[ADC_SAMPLES_PER_CHANNEL];
+//		uint16_t vmeas2[ADC_SAMPLES_PER_CHANNEL];
+//		frequencies_visited[i] = Get_Steady_State(frequencies[i], vmeas_buffer, vmeas0, vmeas1, vmeas2);
+//		Sampling_Disable();
+//		uint32_t fs = Get_Sampling_Frequency();
+//		inputs[i] = Get_Phasor_1Sig(vmeas0, ADC_SAMPLES_PER_CHANNEL, frequencies_visited[i], fs);
+//		outputs[i] = Get_Phasor_1Sig(vmeas1, ADC_SAMPLES_PER_CHANNEL, frequencies_visited[i], fs);
+
+		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies[i], &inputs[i], &outputs[i]);
+	}
+
+//	TransmitUInt32Buffer(frequencies_visited, NFREQUENCIES);
+}
+
+
+void Measurement_Routine(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], float Rref, uint32_t frequencies_visited[])
+{
+	uint32_t frequencies_wanted[NFREQUENCIES];
+	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
+
+	phasor_t v1 = {0,0};
+	phasor_t v2 = {0,0};
+
+	for(size_t i = 0; i < NFREQUENCIES; i++)
+	{
+		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1, &v2);
+		Zx_buff[i] = Calculate_Zx_Calibrated(v1, v2, Rref, Zsm_buff[i], Zom_buff[i]);
+	}
+}
+
+/*---------------------------------------------------------*/
+
+void Sampling_Enable(void)
 {
 	HAL_TIM_Base_Start(&htim2);
+//	HAL_Delay(10);
 }
 
-void Sampling_Disable()
+void Sampling_Disable(void)
 {
 	HAL_TIM_Base_Stop(&htim2);
+//	HAL_Delay(10);
 }
 
-uint32_t Get_Sampling_Frequency()
+uint32_t Get_Sampling_Frequency(void)
 {
-	uint32_t timer_clk = HAL_RCC_GetPCLK2Freq();
-
 	uint32_t psc = __HAL_TIM_GET_ICPRESCALER(&htim2, TIM2_BASE);
 	uint32_t arr = __HAL_TIM_GET_AUTORELOAD(&htim2);
 
 
 	// Compute update frequency: f_update = timer_clk / ((PSC+1) * (ARR+1))
-	uint32_t f_update = timer_clk / ((psc + 1) * (arr + 1));
-	return f_update / (15*3);
+	uint32_t f_update = F_SAMPLE_TIMER / ((psc + 1) * (arr + 1));
+	return f_update;
 }
 
+uint32_t Set_Sampling_Frequency(uint32_t f_sine)
+{
+	// Calculate the desired timer update frequency.
+	uint32_t f_update = f_sine;
+
+    // Calculate the ideal division factor.
+	uint32_t idealDiv = F_SAMPLE_TIMER / f_update;
+
+    uint32_t bestPSC = 0, bestARR = 0, bestError = 0xFFFFFFFF, actualFreq = 0;
+
+    // Iterate over possible prescaler values.
+    // Here we search PSC values from 0 to a reasonable limit (e.g., 1024) to find valid values.
+    for (uint32_t psc = 0; psc < 1024; psc++)
+    {
+    	uint32_t divider = psc + 1;
+	    uint32_t arr_plus1 = idealDiv / divider;
+	    if (arr_plus1 == 0 || arr_plus1 > 65536)  // ARR must be 0..65535 (i.e. ARR+1 <= 65536)
+	    	continue;
+
+	    uint32_t arr = arr_plus1 - 1;
+	    // Calculate the actual update frequency for this configuration.
+	    actualFreq = F_SAMPLE_TIMER / ((psc + 1) * (arr + 1));
+	    // Compute the absolute error.
+	    uint32_t error = (f_update > actualFreq) ? (f_update - actualFreq) : (actualFreq - f_update);
+	    if (error < bestError)
+	    {
+	    	bestError = error;
+	        bestPSC = psc;
+	        bestARR = arr;
+	    }
+	    if (error == 0)
+	    break;  // Perfect match found.
+    }
+
+	// Set the timer registers:
+	__HAL_TIM_SET_PRESCALER(&htim2, bestPSC);
+	__HAL_TIM_SET_AUTORELOAD(&htim2, bestARR);
+	// Force an update event so that new PSC/ARR values are loaded immediately.
+	HAL_TIM_GenerateEvent(&htim2, TIM_EVENTSOURCE_UPDATE);
+
+	// Return the actual timer update frequency (f_update_actual = F_TIMER_CLOCK / ((PSC+1)*(ARR+1)) )
+	return F_SAMPLE_TIMER / ((bestPSC + 1) * (bestARR + 1));
+}
 
 phasor_t Get_Phasor_1Sig(uint16_t sig[], size_t len, uint32_t f0, uint32_t fs)
 {
@@ -154,83 +354,3 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, float Rref, phasor_t 
 }
 
 
-uint32_t Sample_Steady_State(uint32_t f0, uint16_t buffADC[], uint16_t vmeas0[], uint16_t vmeas1[], uint16_t vmeas2[])
-{
-//	Sampling_Disable();
-	uint32_t actualFreq = Set_Signal_Frequency(f0);
-//	HAL_Delay(1); // ms
-	Sampling_Enable();
-
-	// Wait enough to fill the buffer
-	HAL_Delay( (uint32_t) 1000 * ADC_SAMPLES_PER_CHANNEL / Get_Sampling_Frequency());
-	Sampling_Disable();
-
-	ADC_Separate_Channels(buffADC, vmeas0, vmeas1, vmeas2);
-
-	return actualFreq;
-}
-
-uint32_t Sample_Steady_State_Phasors(uint32_t f0, uint16_t buffADC[], phasor_t* input, phasor_t* output)
-{
-	uint16_t vmeas0[ADC_SAMPLES_PER_CHANNEL];
-	uint16_t vmeas1[ADC_SAMPLES_PER_CHANNEL];
-	uint16_t vmeas2[ADC_SAMPLES_PER_CHANNEL];
-	uint32_t actualFreq = Sample_Steady_State(f0, buffADC, vmeas0, vmeas1, vmeas2);
-
-	*input = (phasor_t) {1, 0};
-	*output = Get_Phasor_2Sig(vmeas1, vmeas0, ADC_SAMPLES_PER_CHANNEL, ADC_SAMPLES_PER_CHANNEL,
-			Get_Signal_Frequency(), Get_Sampling_Frequency());
-
-//	*input = Get_Phasor_1Sig(vmeas0, ADC_SAMPLES_PER_CHANNEL, Get_Signal_Frequency(), Get_Sampling_Frequency());
-//	*output = Get_Phasor_1Sig(vmeas1, ADC_SAMPLES_PER_CHANNEL, Get_Signal_Frequency(), Get_Sampling_Frequency());
-	TransmitStringRaw("Measurement:Freq "); TransmitUInt32Raw(actualFreq); TransmitStringRaw(" ");
-	TransmitUInt32Raw(Get_Sampling_Frequency()); TransmitStringRaw(" ");
-	TransmitTwoUInt16Buffer(vmeas0, vmeas1, ADC_SAMPLES_PER_CHANNEL);
-//	TransmitUInt16BufferAsRaw(vmeas0, ADC_SAMPLES_PER_CHANNEL);
-	TransmitStringLn(" ");
-
-	return actualFreq;
-}
-
-void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref)
-{
-	/*
-	 * WARNING: This is NOT OPTIMISED!!
-	 * I also don't know what to do with VMEAS2 for now..
-	 */
-	uint32_t frequencies[NFREQUENCIES];
-	uint32_t frequencies_visited[NFREQUENCIES];
-	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies);
-
-	for(size_t i = 0; i < NFREQUENCIES; i++)
-	{
-//		uint16_t vmeas0[ADC_SAMPLES_PER_CHANNEL];
-//		uint16_t vmeas1[ADC_SAMPLES_PER_CHANNEL];
-//		uint16_t vmeas2[ADC_SAMPLES_PER_CHANNEL];
-//		frequencies_visited[i] = Get_Steady_State(frequencies[i], vmeas_buffer, vmeas0, vmeas1, vmeas2);
-//		Sampling_Disable();
-//		uint32_t fs = Get_Sampling_Frequency();
-//		inputs[i] = Get_Phasor_1Sig(vmeas0, ADC_SAMPLES_PER_CHANNEL, frequencies_visited[i], fs);
-//		outputs[i] = Get_Phasor_1Sig(vmeas1, ADC_SAMPLES_PER_CHANNEL, frequencies_visited[i], fs);
-
-		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies[i], vmeas_buffer, &inputs[i], &outputs[i]);
-	}
-
-	TransmitUInt32Buffer(frequencies_visited, NFREQUENCIES);
-}
-
-
-void Measurement_Routine(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], float Rref, uint32_t frequencies_visited[])
-{
-	uint32_t frequencies_wanted[NFREQUENCIES];
-	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
-
-	phasor_t v1 = {0,0};
-	phasor_t v2 = {0,0};
-
-	for(size_t i = 0; i < NFREQUENCIES; i++)
-	{
-		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], vmeas_buffer, &v1, &v2);
-		Zx_buff[i] = Calculate_Zx_Calibrated(v1, v2, Rref, Zsm_buff[i], Zom_buff[i]);
-	}
-}
