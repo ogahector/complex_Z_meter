@@ -10,7 +10,7 @@
 #include "sig_gen.h"
 #include "string.h"
 
-uint8_t adcDmaTransferComplete;
+volatile uint8_t adcDmaTransferComplete;
 uint8_t adcDmaHalfTransfer;
 uint16_t vmeas_buffer_copy[ADC_BUFFER_SIZE];
 uint16_t vmeas0_copy[ADC_SAMPLES_PER_CHANNEL];
@@ -53,13 +53,12 @@ void ADC_SampleSingleShot(void)
 
     while(adcDmaTransferComplete == 0)
     {
-    	__WFI();
+//    	__WFI();
     	if(HAL_GetTick() > timeout)
     	{
-    		TransmitUInt32Raw((uint32_t) adcDmaTransferComplete);
-    		break; // In case the interrupt is missed
+    		break; // In case the interrupt is missed which ONLY happens at VHF anyways
     	}
-    	TransmitStringLn(adcDmaHalfTransfer ? "DMATRANSFERHALFCOMPLETE" : "DMATRANSFERNOTCOMPLETE");
+//    	TransmitStringLn(adcDmaHalfTransfer ? "DMATRANSFERHALFCOMPLETE" : "DMATRANSFERNOTCOMPLETE");
     	// Wait BLOCKING to allow for full single shot DMA transfer
     }
 
@@ -131,7 +130,9 @@ uint32_t Sample_Steady_State_Phasors(uint32_t f0, phasor_t* input, phasor_t* out
 //	*output = Get_Phasor_1Sig(vmeas1, ADC_SAMPLES_PER_CHANNEL, Get_Signal_Frequency(), Get_Sampling_Frequency());
 	TransmitStringRaw("Measurement:Freq "); TransmitUInt32Raw(actualFreq); TransmitStringRaw(" ");
 	TransmitUInt32Raw(Get_Sampling_Frequency()); TransmitStringRaw(" ");
-	TransmitTwoUInt16Buffer(vmeas0, vmeas1, ADC_SAMPLES_PER_CHANNEL);
+
+//	TransmitTwoUInt16Buffer(vmeas0, vmeas1, ADC_SAMPLES_PER_CHANNEL);
+	TransmitPhasorRaw(*output);
 //	TransmitUInt16BufferAsRaw(vmeas0, ADC_SAMPLES_PER_CHANNEL);
 	TransmitStringLn(" ");
 

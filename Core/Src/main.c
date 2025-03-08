@@ -37,7 +37,6 @@
 typedef enum __INSTRUMENT_STATE
 {
 	IDLE,
-	BUTTON_PRESS,
 	CALIBRATING,
 	MEASURING
 } INSTRUMENT_STATE;
@@ -45,6 +44,8 @@ typedef enum __INSTRUMENT_STATE
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+//#define DEBUG_MODE
 
 /* USER CODE END PD */
 
@@ -72,6 +73,10 @@ UART_HandleTypeDef huart2;
 
 uint16_t sine_wave_buffer[DAC_LUT_SIZE];
 uint16_t vmeas_buffer[ADC_BUFFER_SIZE];
+
+uint8_t rx_buffer[128];
+uint8_t rx_index = 0;
+volatile uint8_t message_received = 0;
 
 
 //uint16_t vmeas1_buffer[1];
@@ -114,9 +119,11 @@ HAL_StatusTypeDef TransmitUInt16BufferAsRaw(uint16_t buffer[], size_t size);
 HAL_StatusTypeDef TransmitNum(float num);
 HAL_StatusTypeDef TransmitNumLn(float num);
 HAL_StatusTypeDef TransmitPhasor(phasor_t phasor);
+HAL_StatusTypeDef TransmitPhasorRaw(phasor_t phasor);
 HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor);
-void ReceiveMessage(char msg[], size_t len);
+HAL_StatusTypeDef ReceiveMessage(char msg[], size_t len);
 uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim);
+void ProcessReceivedMessage(void);
 
 
 /* USER CODE END PFP */
@@ -152,7 +159,7 @@ int main(void)
   /* USER CODE BEGIN SysInit */
 
   MX_USART2_UART_Init();
-  TransmitString("\n");
+//  TransmitString("\n");
 
   /* USER CODE END SysInit */
 
@@ -180,6 +187,7 @@ int main(void)
 
   // GET DAC STATE ON STARTUP
   // Expected: BUSY
+#ifdef DEBUG_MODE
   char msg1[32];
   sprintf(msg1, "Current DAC State: %d", HAL_DAC_GetState(&hdac));
   TransmitStringLn(msg1);
@@ -194,14 +202,21 @@ int main(void)
   char msg3[64];
   sprintf(msg3, "Current TIM2 Freq: %lu", GetTimXCurrentFrequency(&htim2));
   TransmitStringLn(msg3);
-
+#endif
   Sampling_Enable();
 
   uint32_t startTime;
 
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+
 //  phasor_t ZX_RAW[NFREQUENCIES];
   phasor_t inputs[NFREQUENCIES];
   phasor_t outputs[NFREQUENCIES];
+
+
+  char msg_from_user[3];
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -209,52 +224,41 @@ int main(void)
   while (1)
   {
 	  i++;
-	  /*
+
 	  switch(STATE)
 	  {
 	  case(IDLE):
-		if(buttonPress())
+		memset(msg_from_user, 0, 3);
+		ReceiveMessage(msg_from_user, 3);
+//	  TransmitStringLn(msg_from_user);
+		if(strcmp(msg_from_user, "C\n") == 0)
 		{
-			startTime = HAL_GetTick();
-			HAL_Delay(200);
-			STATE = BUTTON_PRESS;
+			STATE = CALIBRATING;
+			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+			TransmitStringLn("CALIBRATION INSTRUCTION RECEIVED!");
 		}
+		else if(strcmp(msg_from_user, "M\n") == 0)
+		{
+			STATE = MEASURING;
+			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+			TransmitStringLn("MEASUREMENT INSTRUCTION RECEIVED!");
+		}
+
 		else STATE = IDLE;
 
 	    break;
 
-	  case(BUTTON_PRESS):
-		// 2 second timeout
-		if(HAL_GetTick() - startTime > 2000)
-		{
-			TransmitStringLn("Starting a Measurement! \n"
-					"Please ensure your DUT is attached before beginning this\n");
-			STATE = MEASURING;
-		}
-		else if(buttonPress())
-		{
-			TransmitStringLn("Beginning Calibration!\n"
-					"Please follow the instructions closely...");
-			STATE = CALIBRATING;
-		}
-		else STATE = BUTTON_PRESS;
-		break;
-
 	  case(CALIBRATING):
-		TransmitStringLn("Beginning Calibration...");
-	    TransmitStringLn("Please Connect a Short Circuit (S/C) DUT across the fixtures.");
-	    TransmitStringLn("Once you have done so, please press the blue button");
-
-	    while(!buttonPress()) // Poll at 50Hz
-	    	HAL_Delay(20);
-
+//		TransmitStringLn("Beginning Calibration...");
+//	    TransmitStringLn("Please Connect a Short Circuit (S/C) DUT across the fixtures.");
+//	    TransmitStringLn("Once you have done so, please press the blue button");
 
 		STATE = IDLE;
 		HAL_Delay(500);
 		break;
 
 	  case(MEASURING):
-		TransmitStringLn("MEASURING...");
+//		TransmitStringLn("MEASURING...");
 		STATE = IDLE;
 	  	HAL_Delay(500);
 		break;
@@ -264,12 +268,8 @@ int main(void)
 		  STATE = IDLE;
 		  break;
 	  }
-	  */
 
-
-
-//	  Sig_Gen_Enable();
-//	  HAL_TIM_Base_Start(&htim6);
+	  continue;
 
 	  if(buttonPress())
 	  {
@@ -372,7 +372,9 @@ static void MX_ADC1_Init(void)
   ADC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN ADC1_Init 1 */
+#ifdef DEBUG_MODE
   TransmitStringLn("Beginning ADC DMA Init...");
+#endif
   /* USER CODE END ADC1_Init 1 */
 
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
@@ -452,7 +454,9 @@ static void MX_DAC_Init(void)
   DAC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN DAC_Init 1 */
+#ifdef DEBUG_MODE
   TransmitStringLn("Beginning DAC DMA Init...");
+#endif
   /* USER CODE END DAC_Init 1 */
 
   /** DAC Initialization
@@ -479,7 +483,9 @@ static void MX_DAC_Init(void)
   }
   else
   {
+#ifdef DEBUG_MODE
 	  TransmitStringLn("DAC DMA SUCCESSFULLY INITIALISED");
+#endif
   }
 
   /* USER CODE END DAC_Init 2 */
@@ -716,7 +722,6 @@ static void MX_DMA_Init(void)
   /* DMA2_Stream0_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
-
 }
 
 /**
@@ -983,6 +988,13 @@ HAL_StatusTypeDef TransmitPhasor(phasor_t phasor)
 	return TransmitString(msg);
 }
 
+HAL_StatusTypeDef TransmitPhasorRaw(phasor_t phasor)
+{
+	char msg[32];
+	sprintf(msg, "%f %f", phasor.magnitude, phasor.phaserad);
+	return TransmitStringRaw(msg);
+}
+
 HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor)
 {
 	char msg[32];
@@ -990,9 +1002,9 @@ HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor)
 	return TransmitString(msg);
 }
 
-void ReceiveMessage(char msg[], size_t len)
+HAL_StatusTypeDef ReceiveMessage(char msg[], size_t len)
 {
-	HAL_UART_Receive(&huart2, msg, len, 1);
+	return HAL_UART_Receive(&huart2, msg, len, 1);
 }
 
 uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim)
@@ -1006,6 +1018,26 @@ uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim)
 	// Compute update frequency: f_update = timer_clk / ((PSC+1) * (ARR+1))
 	uint32_t f_update = timer_clk / ((psc + 1) * (arr + 1));
 	return f_update;
+}
+
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+  if (huart->Instance == USART2) {
+    // Check for message terminator (e.g., newline or carriage return)
+    if (rx_buffer[rx_index] == '\n' || rx_buffer[rx_index] == '\r') {
+      rx_buffer[rx_index] = '\0';  // Null-terminate the string
+      message_received = 1;        // Set flag
+      rx_index = 0;                // Reset buffer index
+    } else {
+      rx_index++;
+      if (rx_index >= sizeof(rx_buffer)) {
+        rx_index = 0;  // Prevent overflow
+      }
+    }
+
+    // Restart reception for next byte
+    HAL_UART_Receive_IT(&huart2, &rx_buffer[rx_index], 1);
+  }
 }
 
 

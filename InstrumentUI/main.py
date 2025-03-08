@@ -3,6 +3,23 @@ import numpy as np
 import ast
 import matplotlib.pyplot as plt
 import iqmethod as iq
+from enum import Enum
+
+ser = serial.Serial('COM5', 115200)
+vmeas0 = []
+vmeas1 = []
+
+measurement: dict[int, complex] = {}
+sc_calibration: dict[int, complex] = {}
+oc_calibration: dict[int, complex] = {}
+
+command = ""
+
+class Resistors(Enum):
+    RES0 = 0,
+    RES1 = 1,
+    RES2 = 2,
+    RES3 = 3
 
 ADC_SAMPLES_PER_CHANNEL = 5000
 
@@ -43,15 +60,36 @@ def Qfactor_RLC(R, L, C, configuration: str):
     else: # series
         return 1/R * np.sqrt(L/C)
 
-ser = serial.Serial('COM9', 115200)
-vmeas0 = []
-vmeas1 = []
+def choose_resistor(res_num: Resistors):
+    if res_num not in range(4) or not isinstance(res_num, Resistors):
+        raise Exception('Bad resistor chosen')
+    
+    res_num = bytearray(str(int(res_num)) + '\n')
 
-measurement: dict[int, complex] = {}
+    ser.write(res_num)
+
+def get_calibrations():
+    choose_resistor(Resistors.RES0)
+
+    
+
 
 while True:
-    reading = str(ser.readline())
+    command = input("Enter command ('C' for calibration, 'M' for measurement): ")
+    if command == 'C':
+        ser.write(b'C\n')
+        print('SENT C')
+    elif command == 'M':
+        ser.write(b'M\n')
+        print('SENT M')
+    else:
+        print("Invalid command")
+        continue
+
+
+    reading = ser.readline()
     print(reading)
+    reading = str(reading)
 
     if 'DONE' in reading:
         magnitudes = [abs(val) for _, val in measurement.items()]
@@ -89,20 +127,19 @@ while True:
         # print(reading)
         f0 = ast.literal_eval(reading[1])
         fs = ast.literal_eval(reading[2])
-        temp = [ast.literal_eval(r) for r in reading[3:-1]]
-        # print(temp)
+        temp = [ast.literal_eval(r) for r in reading[3:-1]] # the rest
 
-        for i in range(len(temp)):
-            if i % 2 == 0:
-                vmeas0.append(temp[i])
-            else:
-                vmeas1.append(temp[i])
-
-
+        # if transmitting the list of vals
+        # for i in range(len(temp)):
+        #     if i % 2 == 0:
+        #         vmeas0.append(temp[i])
+        #     else:
+        #         vmeas1.append(temp[i])
         # print(f'VMEAS0: {vmeas0}')
         # print(f'\nVEAMS1: {vmeas1}')
+        # phasor = iq.phasor_2sig(vmeas1, vmeas0, f0, fs)
 
-        phasor = iq.phasor_2sig(vmeas1, vmeas0, f0, fs)
+        phasor = temp[0] * np.exp(1j*temp[1])
 
         measurement[f0] = phasor
 
