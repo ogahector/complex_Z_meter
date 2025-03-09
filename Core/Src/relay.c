@@ -6,6 +6,7 @@
  */
 
 #include "relay.h"
+#include "main.h"
 
 void Choose_Switching_Resistor(switching_resistor_t res)
 {
@@ -31,8 +32,10 @@ void Choose_Switching_Resistor(switching_resistor_t res)
 
 	default: // RESISTOR3
 		HAL_GPIO_WritePin(RREF_SEL0_GPIO_Port, RREF_SEL0_Pin, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(RREF_SEL1_GPIO_Port, RREF_SEL1_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(RREF_SEL1_GPIO_Port, RREF_SEL1_Pin, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(RREF_SEL2_GPIO_Port, RREF_SEL2_Pin, GPIO_PIN_SET);
 		break;
 	}
+
+	HAL_Delay(RELAY_SWITCH_DELAY_MS);
 }

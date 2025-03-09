@@ -9,6 +9,7 @@
 #include "math.h"
 #include "sig_gen.h"
 #include "string.h"
+#include "transmits.h"
 
 volatile uint8_t adcDmaTransferComplete;
 uint8_t adcDmaHalfTransfer;
@@ -40,12 +41,8 @@ void ADC_SampleSingleShot(void)
 	adcDmaTransferComplete = 0;
 	adcDmaHalfTransfer = 0;
 
-//	Sig_Gen_Enable();
-//	Sampling_Enable();
-////	HAL_Delay(1);
     if (HAL_ADC_Start_DMA(&hadc1, (uint32_t *) vmeas_buffer, ADC_BUFFER_SIZE) != HAL_OK)
     {
-//        Error_Handler(); // or handle error
     	while(1) TransmitStringLn("BAD DMA START");
     }
 
@@ -58,20 +55,21 @@ void ADC_SampleSingleShot(void)
     	{
     		break; // In case the interrupt is missed which ONLY happens at VHF anyways
     	}
-//    	TransmitStringLn(adcDmaHalfTransfer ? "DMATRANSFERHALFCOMPLETE" : "DMATRANSFERNOTCOMPLETE");
     	// Wait BLOCKING to allow for full single shot DMA transfer
     }
 
+    // ideally should be an atomic load / store of atomic ints but oh wells
 	memcpy(vmeas_buffer_copy, vmeas_buffer, ADC_BUFFER_SIZE * sizeof(uint16_t));
-
-//    Sampling_Disable();
-//    Sig_Gen_Enable();
-//    HAL_ADC_Stop_DMA(&hadc1);
 }
 
 
 void ADC_Separate_Channels(uint16_t buffADC[], uint16_t buffA[], uint16_t buffB[], uint16_t buffC[])
 {
+	/*
+	 * NOTE:
+	 * IRL the order should be vmeas2, vmeas1, vmeas0
+	 * because of the way the ADC buffer fill is set up
+	 */
     for(size_t i = 0; i < ADC_BUFFER_SIZE; i++) {
         switch(i % 3) {
             case 0:  // Channel 0
@@ -93,24 +91,17 @@ uint32_t Sample_Steady_State(uint32_t f0, uint16_t vmeas0[], uint16_t vmeas1[], 
 	Sig_Gen_Disable();
 	uint32_t actualFreq = Set_Signal_Frequency(f0);
 
-//	uint32_t waitingTimeSeconds = 10 * 1000 / Get_Signal_Frequency();
-//	uint32_t fillTimeMs = (1000.0f * ADC_BUFFER_SIZE) / Get_Sampling_Frequency();
-//	HAL_Delay(1); // ms
 	Sampling_Enable();
 	Sig_Gen_Enable();
 
-	// Wait enough to fill the buffer
-//	HAL_Delay( (uint32_t) 1000 * Get_Sampling_Frequency() / (2*M_PI*Get_Signal_Frequency() * ADC_SAMPLES_PER_CHANNEL ));
-//	HAL_Delay( (uint32_t) ADC_SAMPLES_PER_CHANNEL * 1000 /( Get_Sampling_Frequency() ));
-//	HAL_Delay( fillTimeMs + 1 );
 
 	ADC_SampleSingleShot();
 
-	ADC_Separate_Channels(vmeas_buffer_copy, vmeas0, vmeas1, vmeas2);
+
+	ADC_Separate_Channels(vmeas_buffer_copy, vmeas2, vmeas1, vmeas0);
 
 	Sampling_Disable();
 	Sig_Gen_Disable();
-
 
 	return actualFreq;
 }
@@ -128,13 +119,13 @@ uint32_t Sample_Steady_State_Phasors(uint32_t f0, phasor_t* input, phasor_t* out
 
 //	*input = Get_Phasor_1Sig(vmeas0, ADC_SAMPLES_PER_CHANNEL, Get_Signal_Frequency(), Get_Sampling_Frequency());
 //	*output = Get_Phasor_1Sig(vmeas1, ADC_SAMPLES_PER_CHANNEL, Get_Signal_Frequency(), Get_Sampling_Frequency());
-	TransmitStringRaw("Measurement:Freq "); TransmitUInt32Raw(actualFreq); TransmitStringRaw(" ");
-	TransmitUInt32Raw(Get_Sampling_Frequency()); TransmitStringRaw(" ");
-
-//	TransmitTwoUInt16Buffer(vmeas0, vmeas1, ADC_SAMPLES_PER_CHANNEL);
-	TransmitPhasorRaw(*output);
-//	TransmitUInt16BufferAsRaw(vmeas0, ADC_SAMPLES_PER_CHANNEL);
-	TransmitStringLn(" ");
+//	TransmitStringRaw("Measurement:Freq "); TransmitUInt32Raw(actualFreq); TransmitStringRaw(" ");
+//	TransmitUInt32Raw(Get_Sampling_Frequency()); TransmitStringRaw(" ");
+//
+////	TransmitTwoUInt16Buffer(vmeas0, vmeas1, ADC_SAMPLES_PER_CHANNEL);
+//	TransmitPhasorRaw(*output);
+////	TransmitUInt16BufferAsRaw(vmeas0, ADC_SAMPLES_PER_CHANNEL);
+//	TransmitStringLn(" ");
 
 	return actualFreq;
 }
@@ -151,46 +142,54 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref)
 
 	// 1e6 WORKS-ish - use 500k is better
 	// This may be the main bottleneck
-	Set_Sampling_Frequency(1000000);
+	Set_Sampling_Frequency(1500000);
 	// Initial sampling to give a baseline and fill the system caps
 	// This is a good fix! Verified in practice
 	ADC_SampleSingleShot();
 
 	for(size_t i = 0; i < NFREQUENCIES; i++)
-//	for(size_t i = NFREQUENCIES - 1; i >= 0; i++)
 	{
-//		uint16_t vmeas0[ADC_SAMPLES_PER_CHANNEL];
-//		uint16_t vmeas1[ADC_SAMPLES_PER_CHANNEL];
-//		uint16_t vmeas2[ADC_SAMPLES_PER_CHANNEL];
-//		frequencies_visited[i] = Get_Steady_State(frequencies[i], vmeas_buffer, vmeas0, vmeas1, vmeas2);
-//		Sampling_Disable();
-//		uint32_t fs = Get_Sampling_Frequency();
-//		inputs[i] = Get_Phasor_1Sig(vmeas0, ADC_SAMPLES_PER_CHANNEL, frequencies_visited[i], fs);
-//		outputs[i] = Get_Phasor_1Sig(vmeas1, ADC_SAMPLES_PER_CHANNEL, frequencies_visited[i], fs);
 
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies[i], &inputs[i], &outputs[i]);
 	}
-
-//	TransmitUInt32Buffer(frequencies_visited, NFREQUENCIES);
 }
 
 
-void Measurement_Routine(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], float Rref, uint32_t frequencies_visited[])
+void Measurement_Routine_Zx(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
+	Choose_Switching_Resistor(Rref);
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
-	phasor_t v1 = {0,0};
-	phasor_t v2 = {0,0};
+	phasor_t v1[NFREQUENCIES];
+	phasor_t v2[NFREQUENCIES];
 
 	for(size_t i = 0; i < NFREQUENCIES; i++)
 	{
-		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1, &v2);
-		Zx_buff[i] = Calculate_Zx_Calibrated(v1, v2, Rref, Zsm_buff[i], Zom_buff[i]);
+		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &v2[i]);
+		Zx_buff[i] = Calculate_Zx_Calibrated(v1[i], v2[i], Rref, Zsm_buff[i], Zom_buff[i]);
 	}
 }
 
+void Measurement_Routine_Voltage(phasor_t output[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[])
+{
+	Choose_Switching_Resistor(Rref);
+	uint32_t frequencies_wanted[NFREQUENCIES];
+	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
+
+	phasor_t v1[NFREQUENCIES];
+
+	for(size_t i = 0; i < NFREQUENCIES; i++)
+	{
+		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &output[i]);
+	}
+}
+
+
+
 /*---------------------------------------------------------*/
+
+
 
 void Sampling_Enable(void)
 {
@@ -204,6 +203,7 @@ void Sampling_Disable(void)
 //	HAL_Delay(10);
 }
 
+
 uint32_t Get_Sampling_Frequency(void)
 {
 	uint32_t psc = __HAL_TIM_GET_ICPRESCALER(&htim2, TIM2_BASE);
@@ -214,6 +214,7 @@ uint32_t Get_Sampling_Frequency(void)
 	uint32_t f_update = F_SAMPLE_TIMER / ((psc + 1) * (arr + 1));
 	return f_update;
 }
+
 
 uint32_t Set_Sampling_Frequency(uint32_t f_sine)
 {
@@ -259,6 +260,8 @@ uint32_t Set_Sampling_Frequency(uint32_t f_sine)
 	return F_SAMPLE_TIMER / ((bestPSC + 1) * (bestARR + 1));
 }
 
+
+
 phasor_t Get_Phasor_1Sig(uint16_t sig[], size_t len, uint32_t f0, uint32_t fs)
 {
 	/*
@@ -301,23 +304,26 @@ phasor_t Get_Phasor_2Sig(uint16_t sig[], uint16_t ref[], size_t lensig, size_t l
 	};
 }
 
+
+
+
 phasor_t phasor_sub(phasor_t x1, phasor_t x2)
 {
 	// Check edgecases that simplify the maths
-	if(x1.phaserad == 0)
-	{
-		return (phasor_t) {
-			x1.magnitude * x2.magnitude,
-			- x2.phaserad
-		};
-	}
-	else if(x2.phaserad == 0)
-	{
-		return (phasor_t) {
-			x1.magnitude * x2.magnitude,
-			x1.phaserad
-		};
-	}
+//	if(x1.phaserad == 0)
+//	{
+//		return (phasor_t) {
+//			x1.magnitude * x2.magnitude,
+//			- x2.phaserad
+//		};
+//	}
+//	else if(x2.phaserad == 0)
+//	{
+//		return (phasor_t) {
+//			x1.magnitude * x2.magnitude,
+//			x1.phaserad
+//		};
+//	}
 
 	double vdiff_real = x1.magnitude * cos(x1.phaserad) - x2.magnitude * cos(x2.phaserad);
 	double vdiff_imag = x1.magnitude * sin(x1.phaserad) - x2.magnitude * sin(x2.phaserad);
@@ -328,16 +334,16 @@ phasor_t phasor_sub(phasor_t x1, phasor_t x2)
 }
 
 
-phasor_t Calculate_Zx_Raw(phasor_t v1, phasor_t v2, float Rref)
+phasor_t Calculate_Zx_Raw(phasor_t v1, phasor_t v2, switching_resistor_t Rref)
 {
 	phasor_t vdiff = phasor_sub(v1, v2);
 	return (phasor_t) {
-		Rref * v2.magnitude / vdiff.magnitude,
+		((double) Rref/1000) * v2.magnitude / vdiff.magnitude, // divide my 1000 bc its in mOhms!!
 		v2.phaserad - vdiff.phaserad
 	};
 }
 
-phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, float Rref, phasor_t Zsm, phasor_t Zom)
+phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t Rref, phasor_t Zsm, phasor_t Zom)
 {
 	// I'm very sorry: I'm aware these operations are quite computationally intensive
 	// This is also a formula taken from the Hioki Impedance Measurement Handbook
@@ -347,6 +353,7 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, float Rref, phasor_t 
 	phasor_t Z_temp1 = phasor_sub(Zom, Zsm);
 	phasor_t Z_temp2 = phasor_sub(Zm, Zsm);
 	phasor_t Z_temp3 = phasor_sub(Zom, Zm);
+//	if(Z_temp3.magnitude == 0) Z_temp3.magnitude = 1;
 
 	return (phasor_t) {
 		Z_temp1.magnitude * Z_temp2.magnitude / Z_temp3.magnitude,

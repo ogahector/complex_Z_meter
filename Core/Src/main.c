@@ -44,8 +44,10 @@ typedef enum __INSTRUMENT_STATE
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
-//#define DEBUG_MODE
+#define NORMAL_MODE
+#define DEBUG_MODES
+//#define UART_DEBUG_MODE
+//#define SWITCHING_RESISTOR_DEBUG_MODE
 
 /* USER CODE END PD */
 
@@ -74,23 +76,18 @@ UART_HandleTypeDef huart2;
 uint16_t sine_wave_buffer[DAC_LUT_SIZE];
 uint16_t vmeas_buffer[ADC_BUFFER_SIZE];
 
-uint8_t rx_buffer[128];
-uint8_t rx_index = 0;
-volatile uint8_t message_received = 0;
-
-
-//uint16_t vmeas1_buffer[1];
-//uint16_t vmeas2_buffer[1];
-
-//const uint32_t freq_max = 100e3;
-//const uint32_t freq_min = 100;
-//const uint8_t freq_ppdecade = 50;
-//uint32_t frequencies[3 * freq_ppdecade];
+switching_resistor_t resistor;
 
 INSTRUMENT_STATE STATE = IDLE;
 
-phasor_t OC_CAL = (phasor_t) {0, 0};
-phasor_t SC_CAL = (phasor_t) {0, 0};
+// Calibration IMPEDANCE values
+phasor_t OC_CAL[NFREQUENCIES];
+phasor_t SC_CAL[NFREQUENCIES];
+phasor_t known_zero[NFREQUENCIES];
+
+// Measured Impedance Values
+phasor_t Zx_measured[NFREQUENCIES];
+uint32_t frequencies_visited[NFREQUENCIES] = {0};
 
 /* USER CODE END PV */
 
@@ -107,23 +104,19 @@ static void MX_TIM2_Init(void);
 static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 bool buttonPress(void);
-HAL_StatusTypeDef TransmitString(char msg[]);
-HAL_StatusTypeDef TransmitStringRaw(char msg[]);
-HAL_StatusTypeDef TransmitStringLn(char msg[]);
-HAL_StatusTypeDef TransmitIntBuffer(int buffer[], size_t size);
-HAL_StatusTypeDef TransmitUInt32Buffer(uint32_t buffer[], size_t size);
-HAL_StatusTypeDef TransmitUInt16Buffer(uint16_t buffer[], size_t size);
-HAL_StatusTypeDef TransmitTwoUInt16Buffer(uint16_t buffer1[], uint16_t buffer2[], size_t size);
-HAL_StatusTypeDef TransmitUInt8Buffer(uint8_t buffer[], size_t size);
-HAL_StatusTypeDef TransmitUInt16BufferAsRaw(uint16_t buffer[], size_t size);
-HAL_StatusTypeDef TransmitNum(float num);
-HAL_StatusTypeDef TransmitNumLn(float num);
+uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim);
+
+// should be in transmits.h but it's being fussy
 HAL_StatusTypeDef TransmitPhasor(phasor_t phasor);
 HAL_StatusTypeDef TransmitPhasorRaw(phasor_t phasor);
 HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor);
 HAL_StatusTypeDef ReceiveMessage(char msg[], size_t len);
-uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim);
-void ProcessReceivedMessage(void);
+
+HAL_StatusTypeDef TransmitPhasorDataframe(phasor_t phasors[], uint32_t frequencies_visited[], switching_resistor_t res);
+
+
+
+
 
 
 /* USER CODE END PFP */
@@ -187,7 +180,7 @@ int main(void)
 
   // GET DAC STATE ON STARTUP
   // Expected: BUSY
-#ifdef DEBUG_MODE
+#ifdef UART_DEBUG_MODE
   char msg1[32];
   sprintf(msg1, "Current DAC State: %d", HAL_DAC_GetState(&hdac));
   TransmitStringLn(msg1);
@@ -203,6 +196,7 @@ int main(void)
   sprintf(msg3, "Current TIM2 Freq: %lu", GetTimXCurrentFrequency(&htim2));
   TransmitStringLn(msg3);
 #endif
+
   Sampling_Enable();
 
   uint32_t startTime;
@@ -216,6 +210,15 @@ int main(void)
 
   char msg_from_user[3];
 
+  // assert 0 calibration phasors
+  for(size_t i = 0; i < NFREQUENCIES; i++)
+  {
+	  SC_CAL[i] = (phasor_t) {0,0};
+	  OC_CAL[i] = (phasor_t) {0,0};
+	  known_zero[i] = (phasor_t) {0,0};
+  }
+
+  resistor = RESISTOR1;
 
   /* USER CODE END 2 */
 
@@ -225,9 +228,11 @@ int main(void)
   {
 	  i++;
 
+#ifdef NORMAL_MODE
 	  switch(STATE)
 	  {
 	  case(IDLE):
+		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 		memset(msg_from_user, 0, 3);
 		ReceiveMessage(msg_from_user, 3);
 //	  TransmitStringLn(msg_from_user);
@@ -235,13 +240,13 @@ int main(void)
 		{
 			STATE = CALIBRATING;
 			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-			TransmitStringLn("CALIBRATION INSTRUCTION RECEIVED!");
+//			TransmitStringLn("CALIBRATION INSTRUCTION RECEIVED!");
 		}
 		else if(strcmp(msg_from_user, "M\n") == 0)
 		{
 			STATE = MEASURING;
-			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-			TransmitStringLn("MEASUREMENT INSTRUCTION RECEIVED!");
+			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+//			TransmitStringLn("MEASUREMENT INSTRUCTION RECEIVED!");
 		}
 
 		else STATE = IDLE;
@@ -249,18 +254,29 @@ int main(void)
 	    break;
 
 	  case(CALIBRATING):
-//		TransmitStringLn("Beginning Calibration...");
-//	    TransmitStringLn("Please Connect a Short Circuit (S/C) DUT across the fixtures.");
-//	    TransmitStringLn("Once you have done so, please press the blue button");
+		// Wait until short is connected
+		HAL_Delay(100);
+		Measurement_Routine_Zx(SC_CAL, known_zero, known_zero, resistor, frequencies_visited);
 
+	  	// Wait until is OC
+		HAL_Delay(100);
+	  	Measurement_Routine_Zx(OC_CAL, known_zero, known_zero, resistor, frequencies_visited);
 		STATE = IDLE;
 		HAL_Delay(500);
 		break;
 
 	  case(MEASURING):
-//		TransmitStringLn("MEASURING...");
+		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+	    Sig_Gen_Enable();
+
+//	    Get_All_Raw_Phasors(inputs, outputs, 1000);
+//	    Measurement_Routine_Zx(Zx_measured, SC_CAL, OC_CAL, resistor, frequencies_visited);
+//	    TransmitPhasorDataframe(Zx_measured, frequencies_visited, resistor);
+
+	    Measurement_Routine_Voltage(outputs, SC_CAL, OC_CAL, resistor, frequencies_visited);
+	    TransmitPhasorDataframe(outputs, frequencies_visited, resistor);
+		HAL_Delay(1000);
 		STATE = IDLE;
-	  	HAL_Delay(500);
 		break;
 
 
@@ -270,32 +286,28 @@ int main(void)
 	  }
 
 	  continue;
+#endif /*NORMAL MODE*/
 
+#ifdef SWITCHING_RESISTOR_DEBUG_MODE
 	  if(buttonPress())
 	  {
 		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-		  Sig_Gen_Enable();
-		  TransmitStringLn("Starting Measuring!");
+		  Choose_Switching_Resistor(RESISTOR3);
+//		  Sig_Gen_Enable();
+//		  TransmitStringLn("Starting Measuring!");
 //		  TransmitUInt16Buffer(sine_wave_buffer, DAC_LUT_SIZE);
 
-		  Get_All_Raw_Phasors(inputs, outputs, 1000);
+//		  Get_All_Raw_Phasors(inputs, outputs, 1000);
 		  TransmitStringLn("DONE!");
-		  HAL_Delay(1000);
 
-
-
-		  for(int i = 0; i < NFREQUENCIES; i++)
-		  {
-			  TransmitPhasorLn(outputs[i]);
-		  }
 		  HAL_Delay(100);
 	  }
 	  else
 	  {
+		  Choose_Switching_Resistor(RESISTOR0);
 		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 	  }
-
-
+#endif /* SWITCHING_RESISTOR_DEBUG_MODE */
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -372,7 +384,7 @@ static void MX_ADC1_Init(void)
   ADC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN ADC1_Init 1 */
-#ifdef DEBUG_MODE
+#ifdef UART_DEBUG_MODE
   TransmitStringLn("Beginning ADC DMA Init...");
 #endif
   /* USER CODE END ADC1_Init 1 */
@@ -454,7 +466,7 @@ static void MX_DAC_Init(void)
   DAC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN DAC_Init 1 */
-#ifdef DEBUG_MODE
+#ifdef UART_DEBUG_MODE
   TransmitStringLn("Beginning DAC DMA Init...");
 #endif
   /* USER CODE END DAC_Init 1 */
@@ -470,7 +482,7 @@ static void MX_DAC_Init(void)
   /** DAC channel OUT1 config
   */
   sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
-  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_DISABLE;
+  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
@@ -483,7 +495,7 @@ static void MX_DAC_Init(void)
   }
   else
   {
-#ifdef DEBUG_MODE
+#ifdef UART_DEBUG_MODE
 	  TransmitStringLn("DAC DMA SUCCESSFULLY INITIALISED");
 #endif
   }
@@ -819,167 +831,19 @@ bool buttonPress(void)
 }
 
 
-HAL_StatusTypeDef TransmitString(char msg[])
+uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim)
 {
-	if(HAL_UART_Transmit(&huart2, (const unsigned char*) msg, (uint16_t) strlen(msg), 5) != HAL_OK)
-	{
-		return HAL_ERROR;
-	}
-	return HAL_UART_Transmit(&huart2, (const unsigned char*) "\r", (uint16_t) strlen("\r"), 5);
+	uint32_t timer_clk = HAL_RCC_GetPCLK1Freq();
+
+	uint32_t psc = __HAL_TIM_GET_ICPRESCALER(htim, TIM6_BASE);
+	uint32_t arr = __HAL_TIM_GET_AUTORELOAD(htim);
+
+
+	// Compute update frequency: f_update = timer_clk / ((PSC+1) * (ARR+1))
+	uint32_t f_update = timer_clk / ((psc + 1) * (arr + 1));
+	return f_update;
 }
 
-HAL_StatusTypeDef TransmitStringRaw(char msg[])
-{
-	return HAL_UART_Transmit(&huart2, msg, (uint16_t) strlen(msg), HAL_MAX_DELAY);
-}
-
-HAL_StatusTypeDef TransmitStringLn(char msg[])
-{
-	if (TransmitString(msg) != HAL_OK)
-	{
-		return HAL_ERROR;
-	}
-	return TransmitString("\n");
-}
-
-
-HAL_StatusTypeDef TransmitIntBuffer(int buffer[], size_t size)
-{
-    char msg[32];  // Buffer to hold the formatted string
-
-    TransmitString("\n");
-    for (size_t i = 0; i < size; i++)
-    {
-        // Format the integer value into a string followed by a newline
-        sprintf(msg, "%d\r\n", buffer[i]);
-
-        // Transmit the formatted string over USART
-        if (TransmitString(msg) != HAL_OK)
-        {
-            return HAL_ERROR;
-        }
-    }
-
-    return HAL_OK;
-}
-
-
-HAL_StatusTypeDef TransmitUInt32Buffer(uint32_t buffer[], size_t size)
-{
-    char msg[32];  // Buffer to hold the formatted string
-
-    TransmitString("\n");
-    for (size_t i = 0; i < size; i++)
-    {
-        // Format the integer value into a string followed by a newline
-        sprintf(msg, "%lu\r\n", buffer[i]);
-
-        // Transmit the formatted string over USART
-        if (TransmitString(msg) != HAL_OK)
-        {
-            return HAL_ERROR;
-        }
-    }
-
-    return HAL_OK;
-}
-
-
-HAL_StatusTypeDef TransmitUInt16Buffer(uint16_t buffer[], size_t size)
-{
-    char msg[32];  // Buffer to hold the formatted string
-
-    TransmitString("\n");
-    for (size_t i = 0; i < size; i++)
-    {
-        // Format the integer value into a string followed by a newline
-        sprintf(msg, "%u\r\n", buffer[i]);
-
-        // Transmit the formatted string over USART
-        if (TransmitString(msg) != HAL_OK)
-        {
-            return HAL_ERROR;
-        }
-    }
-
-    return HAL_OK;
-}
-
-HAL_StatusTypeDef TransmitTwoUInt16Buffer(uint16_t buffer1[], uint16_t buffer2[], size_t size)
-{
-    char msg[32];  // Buffer to hold the formatted string
-
-//    TransmitString("\n");
-    for (size_t i = 0; i < size-1; i++)
-    {
-        // Format the integer value into a string followed by a newline
-        sprintf(msg, "%u %u ", buffer1[i], buffer2[i]);
-
-        // Transmit the formatted string over USART
-        if (TransmitStringRaw(msg) != HAL_OK)
-        {
-            return HAL_ERROR;
-        }
-    }
-
-    sprintf(msg, "%u %u", buffer1[size-1], buffer2[size-1]);
-
-    // Transmit the formatted string over USART
-    if (TransmitStringRaw(msg) != HAL_OK)
-    {
-    return HAL_ERROR;
-    }
-
-    return HAL_OK;
-}
-
-HAL_StatusTypeDef TransmitUInt8Buffer(uint8_t buffer[], size_t size)
-{
-    char msg[32];  // Buffer to hold the formatted string
-
-    TransmitString("\n");
-    for (size_t i = 0; i < size; i++)
-    {
-        // Format the integer value into a string followed by a newline
-        sprintf(msg, "%lu\r\n", buffer[i]);
-
-        // Transmit the formatted string over USART
-        if (TransmitString(msg) != HAL_OK)
-        {
-            return HAL_ERROR;
-        }
-    }
-
-    return HAL_OK;
-}
-
-HAL_StatusTypeDef TransmitUInt16BufferAsRaw(uint16_t buffer[], size_t size)
-{
-	return HAL_UART_Transmit(&huart2, buffer, size, 10);
-}
-
-HAL_StatusTypeDef TransmitNum(float num)
-{
-	char msg[32];
-
-	sprintf(msg, "%f\r", num);
-
-	return TransmitString(msg);
-}
-
-HAL_StatusTypeDef TransmitUInt32Raw(uint32_t num)
-{
-	char msg[32];
-	sprintf(msg, "%u", num);
-	return TransmitStringRaw(msg);
-}
-
-HAL_StatusTypeDef TransmitNumLn(float num)
-{
-	char msg[32];
-	sprintf(msg, "%f\r\n", num);
-	return TransmitString(msg);
-}
 
 HAL_StatusTypeDef TransmitPhasor(phasor_t phasor)
 {
@@ -991,7 +855,7 @@ HAL_StatusTypeDef TransmitPhasor(phasor_t phasor)
 HAL_StatusTypeDef TransmitPhasorRaw(phasor_t phasor)
 {
 	char msg[32];
-	sprintf(msg, "%f %f", phasor.magnitude, phasor.phaserad);
+	sprintf(msg, "%e %e", phasor.magnitude, phasor.phaserad);
 	return TransmitStringRaw(msg);
 }
 
@@ -1007,37 +871,20 @@ HAL_StatusTypeDef ReceiveMessage(char msg[], size_t len)
 	return HAL_UART_Receive(&huart2, msg, len, 1);
 }
 
-uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim)
+
+HAL_StatusTypeDef TransmitPhasorDataframe(phasor_t phasors[], uint32_t frequencies_visited[], switching_resistor_t res)
 {
-	uint32_t timer_clk = HAL_RCC_GetPCLK1Freq();
+	for(size_t i = 0; i < NFREQUENCIES; i++)
+	{
+		TransmitStringRaw("Measurement:Freq "); TransmitUInt32Raw(frequencies_visited[i]); TransmitStringRaw(" ");
+		TransmitUInt32Raw(Get_Sampling_Frequency()); TransmitStringRaw(" ");
+		TransmitNumRaw((float) res/1000); TransmitStringRaw(" ");
 
-	uint32_t psc = __HAL_TIM_GET_ICPRESCALER(htim, TIM6_BASE);
-	uint32_t arr = __HAL_TIM_GET_AUTORELOAD(htim);
-
-
-	// Compute update frequency: f_update = timer_clk / ((PSC+1) * (ARR+1))
-	uint32_t f_update = timer_clk / ((psc + 1) * (arr + 1));
-	return f_update;
-}
-
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-  if (huart->Instance == USART2) {
-    // Check for message terminator (e.g., newline or carriage return)
-    if (rx_buffer[rx_index] == '\n' || rx_buffer[rx_index] == '\r') {
-      rx_buffer[rx_index] = '\0';  // Null-terminate the string
-      message_received = 1;        // Set flag
-      rx_index = 0;                // Reset buffer index
-    } else {
-      rx_index++;
-      if (rx_index >= sizeof(rx_buffer)) {
-        rx_index = 0;  // Prevent overflow
-      }
-    }
-
-    // Restart reception for next byte
-    HAL_UART_Receive_IT(&huart2, &rx_buffer[rx_index], 1);
-  }
+		TransmitPhasorRaw(isnan(phasors[i].magnitude) ? (phasor_t) {0,phasors[i].phaserad} : phasors[i]);
+		TransmitStringLn(" ");
+		HAL_Delay(1);
+	}
+	return TransmitStringLn("DONE!");
 }
 
 

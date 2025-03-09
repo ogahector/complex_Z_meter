@@ -31,11 +31,13 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "relay.h"
+#include "dsp.h"
 #include "sig_gen.h"
 #include "dual_spi_adc.h"
-#include "dsp.h"
-#include "relay.h"
+#include "transmits.h"
 #include <stdint.h>
+#include "math.h"
 
 /* USER CODE END Includes */
 
@@ -103,7 +105,7 @@ void Error_Handler(void);
 
 #define FREQ_MAX 100000
 #define FREQ_MIN 100
-#define FREQ_PPDECADE 20
+#define FREQ_PPDECADE 30
 #define FREQ_NDECADE 3
 #define NFREQUENCIES ( FREQ_PPDECADE * FREQ_NDECADE )
 

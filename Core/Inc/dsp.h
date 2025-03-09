@@ -9,6 +9,7 @@
 #define SRC_DSP_H_
 
 #include "main.h"
+#include "relay.h"
 
 #define ADC_SAMPLES_PER_CHANNEL (5000) // 3k or 2k would be better ngl
 #define ADC_BUFFER_SIZE (3*ADC_SAMPLES_PER_CHANNEL)
@@ -26,16 +27,6 @@ typedef struct __phasor_t {
     double magnitude;
     double phaserad;
 } phasor_t;
-
-typedef struct __freq_t {
-	phasor_t phasor;
-
-	uint16_t input[ADC_SAMPLES_PER_CHANNEL];
-	uint16_t output[ADC_SAMPLES_PER_CHANNEL];
-
-	float Rref;
-
-} freq_t;
 
 void HAL_ADC_HalfConvCpltCallback(ADC_HandleTypeDef* hadc);
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
@@ -105,7 +96,7 @@ phasor_t phasor_sub(phasor_t x1, phasor_t x2);
  * @param Rref: The reference resistance value.
  * @return The raw impedance phasor.
  */
-phasor_t Calculate_Zx_Raw(phasor_t v1, phasor_t v2, float Rref);
+phasor_t Calculate_Zx_Raw(phasor_t v1, phasor_t v2, switching_resistor_t Rref);
 
 /**
  * @brief Calculates the calibrated DUT impedance using measured phasors.
@@ -116,7 +107,7 @@ phasor_t Calculate_Zx_Raw(phasor_t v1, phasor_t v2, float Rref);
  * @param Zom: The open-circuit impedance phasor from calibration.
  * @return The calibrated DUT impedance phasor.
  */
-phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, float Rref, phasor_t Zsm, phasor_t Zom);
+phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t Rref, phasor_t Zsm, phasor_t Zom);
 
 /**
  * @brief Samples a steady state and separates ADC channels into three buffers.
@@ -155,7 +146,8 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref);
  * @param Rref: The reference resistance value.
  * @param frequencies_visited: Array to store the frequencies at which measurements were made.
  */
-void Measurement_Routine(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], float Rref, uint32_t frequencies_visited[]);
+void Measurement_Routine_Zx(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
 
+void Measurement_Routine_Voltage(phasor_t output[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
 
 #endif /* SRC_DSP_H_ */

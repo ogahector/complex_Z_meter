@@ -8,13 +8,15 @@
 #ifndef SRC_RELAY_H_
 #define SRC_RELAY_H_
 
-#include "main.h"
+#define RELAY_SWITCH_DELAY_MS 5
 
-typedef enum {
-	RESISTOR0 = 100,
-	RESISTOR1 = 1000,
-	RESISTOR2 = 10000,
-	RESISTOR3 = 100000
+typedef enum __switching_resistor_t { // this will be in mOhm!!
+	RESISTOR0 = 100000,
+	RESISTOR1 = 1000000,
+	RESISTOR2 = 10000000,
+	RESISTOR3 = 100000000
 } switching_resistor_t;
+
+void Choose_Switching_Resistor(switching_resistor_t res);
 
 #endif /* SRC_RELAY_H_ */
