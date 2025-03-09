@@ -1,5 +1,5 @@
 # Debug Commands
-# - STM32F303RE <-> USB VCP <-> PC
+# - STM32 <-> USB VCP <-> PC
 
 # ----------------------------------------------------------------
 # Import
@@ -73,10 +73,10 @@ for (key, value) in command_table.items():
     command_list.append(key)
 
 # - User Command Interface
-class Debug_Command(object):
+class DebugCommand(object):
     
     # Assign pyqtSignal directly to those variables instead of connecting
-    # - to minimize the module dependicies required
+    # - to minimize the module dependencies required
     status_s    = None  # Signal for status indicating
     console_s   = None  # Signal for console print
     msgbox_s    = None  # Signal for msgbox print
@@ -96,19 +96,19 @@ class Debug_Command(object):
   
     # Print information
     def print(self, message):
-        if(self.console_s == None):
+        if self.console_s is None:
             print(message,  end='')
         else:
             self.console_s.emit(message)
     
-    # Status inidicator, True: busy, False: idle
+    # Status indicator, True: busy, False: idle
     def status(self, state):
-        if(self.status_s != None):
+        if self.status_s is not None:
             self.status_s.emit(state)
     
-    # Error nitification
+    # Error notification
     def error(self, msg):
-        if(self.msgbox_s != None):
+        if self.msgbox_s is not None:
             self.msgbox_s.emit(msg)
         else:
             print(msg)
@@ -128,15 +128,15 @@ class Debug_Command(object):
         for port in ports:
             #hwid = port.hwid
 
-            if(port.vid==0x0483):
+            if port.vid==0x0483:
                 port_name.append('USB: ' + hex(port.pid)[2:].upper().zfill(4))
                 port_list.append(port.device)
-                if(show):
+                if show:
                     print(port_name[-1] + '(%s)' % port.device)
 
         #--------------------------------
         self.status(False)
-        return (port_name, port_list)
+        return port_name, port_list
 
     # Connect to serial port
     def open_serial(self, port='COM6'):
@@ -151,11 +151,11 @@ class Debug_Command(object):
             self.print('Successful\n')
             self.serial_connected = True
         except Exception as e:
-            self.print('Failded\n')
+            self.print('Failed\n')
             e_msg = str(e)
-            if('OSError' in e_msg):
+            if 'OSError' in e_msg:
                 self.error('Timeout !\nMake sure instrument is powered on\n')
-            elif('PermissionError' in e_msg):
+            elif 'PermissionError' in e_msg:
                 self.error('Serial port is currently occupied by another UI')
             else:
                 self.error('Unknown error')
@@ -167,7 +167,7 @@ class Debug_Command(object):
     # Close current serial port
     def close_serial(self):
         self.print('S: Close serial port %s, ' % self.serial_port)
-        if(self.serial_connected):
+        if self.serial_connected:
             self.serial_obj.close()
             self.print('Successful\n')
             self.serial_obj = None
@@ -186,8 +186,8 @@ class Debug_Command(object):
             self.print("S: No such command '%s'\n" % cmd[0])
             return None
         n_para = func>>12
-        if(n_para==0):
-            return (func, None, None)
+        if n_para==0:
+            return func, None, None
         # Decode parameter 1
         try:
             par1 = int(cmd[1], 0)
@@ -197,8 +197,8 @@ class Debug_Command(object):
         except IndexError:
             self.print("S: Command '%s' requires %s parameter(s)\n" % (cmd[0], 'a' if n_para==1 else "two"))
             return None
-        if(n_para == 1):
-            return (func, par1, None)
+        if n_para == 1:
+            return func, par1, None
         # Decode parameter 2
         try:
             par2 = int(cmd[2], 0)
@@ -208,52 +208,52 @@ class Debug_Command(object):
         except IndexError:
             self.print("S: Command '%s' requires two parameters\n" % cmd[0])
             return None
-        return (func, par1, par2)
+        return func, par1, par2
 
     # Execute command
     def execute_cmd(self, input_cmd):
         cmd_decoded = self.decode_cmd(input_cmd)
-        if(cmd_decoded==None):
+        if cmd_decoded is None:
             return None
         else:
             (func, par1, par2) = cmd_decoded
 
         # System command
-        if((func>>8)&0x0F == 0x0F):
-            if(func==0x0F00):
-                if(self.console_s==None):
+        if (func >> 8)&0x0F == 0x0F:
+            if func==0x0F00:
+                if self.console_s is None:
                     cmd = input("Are you sure to quit ? y/n: ")
-                    if(cmd.lower()=='y'):
+                    if cmd.lower()== 'y':
                         quit(0)
                 else:
                     self.print("S: Invalid cmd for UI\n")
-            if(func==0x0F01):
+            if func==0x0F01:
                 for (index, command) in enumerate(command_list):
                     self.print(('[%-2d] ' % index) + command + '\n')
-            if(func==0x0F10):
+            if func==0x0F10:
                 self.list_serial(show=True)
-            if(func==0x0F11):
+            if func==0x0F11:
                 self.close_serial()
-            if(func==0x1F12):
+            if func==0x1F12:
                 self.open_serial('COM' + str(par1))
             return None
 
         # MCU Command
         # - Check connectivity
-        if(self.serial_connected!=True):
+        if not self.serial_connected:
             self.print('S: Serial port not connected\n')    # ? Serial not connected
             self.error('Serial port not connected\n')
             raise SystemError
 
         # - Encode to binary
         cmd_send = struct.pack(">H", func)
-        cmd_send = cmd_send + struct.pack(">H", par1 if par1!=None else 0x00)
-        cmd_send = cmd_send + struct.pack(">H", par2 if par2!=None else 0x00)
+        cmd_send = cmd_send + struct.pack(">H", par1 if par1 is not None else 0x00)
+        cmd_send = cmd_send + struct.pack(">H", par2 if par2 is not None else 0x00)
 
         # ----------------------------------------------------------------
         # Entre critical region (Mutual Exclusion)
         # - Wait until serial is ready
-        while(not self.serial_ready):
+        while not self.serial_ready:
             pass
         self.serial_ready = False
         self.status(True)
@@ -274,20 +274,20 @@ class Debug_Command(object):
         rdata_all = ''
         timeout_cnt = 0
         # - Check if end of message else dynamically print
-        while(True):
+        while True:
             try:
                 # - Check if data available
-                numBytes = self.serial_obj.inWaiting()
-                if(numBytes!=0):
+                num_bytes = self.serial_obj.inWaiting()
+                if num_bytes!=0:
                     timeout_cnt = 0
                     # - Read a number of bytes
-                    rdata = self.serial_obj.read(numBytes)
+                    rdata = self.serial_obj.read(num_bytes)
                     # - Decode as utf-8
                     rdata = str(rdata, encoding = 'utf-8')
                     # - Append characters
                     rdata_all = rdata_all + rdata
                     # - Check if end flag
-                    if(rdata_all.find("$")!=-1):
+                    if rdata_all.find("$")!=-1:
                         break
                     else:
                         self.print(rdata_all)
@@ -301,26 +301,26 @@ class Debug_Command(object):
             # - Check if timeout
             else:
                 timeout_cnt = timeout_cnt + 1
-                if(timeout_cnt==self.serial_timeout):
+                if timeout_cnt==self.serial_timeout:
                     self.error('Serial: Timeout')
                     self.status(False)
                     self.serial_ready = True
                     raise TimeoutError
 
-        # - Print remaining messgaes
+        # - Print remaining messages
         endflag = rdata_all.find("$")
-        if(rdata_all[ : endflag]!=''):
+        if rdata_all[: endflag]!= '':
             self.print(rdata_all[ : endflag])
         rdata_all = rdata_all[endflag : ]
 
         # - Check if end of transmission
         timeout_cnt = 0
-        while(rdata_all[-1]!="#"):
+        while rdata_all[-1]!= "#":
             try:
-                numBytes = self.serial_obj.inWaiting()
-                if(numBytes!=0):
+                num_bytes = self.serial_obj.inWaiting()
+                if num_bytes!=0:
                     timeout_cnt = 0
-                    rdata = self.serial_obj.read(numBytes)
+                    rdata = self.serial_obj.read(num_bytes)
                     rdata = str(rdata, encoding = 'utf-8')
                     rdata_all = rdata_all + rdata
             except Exception as e:
@@ -331,7 +331,7 @@ class Debug_Command(object):
                 raise RuntimeError
             else:
                 timeout_cnt = timeout_cnt + 1
-                if(timeout_cnt==self.serial_timeout):
+                if timeout_cnt==self.serial_timeout:
                     self.error("Serial: Timeout")   # ? No end flag '#' in firmware
                     self.status(False)
                     self.serial_ready = True
@@ -340,13 +340,13 @@ class Debug_Command(object):
         # - Decode returned data
         #print(rdata_all)
         try:
-            if(rdata_all[1]!="["):
+            if rdata_all[1]!= "[":
                 data = int(rdata_all[1:-1]) if rdata_all!='$#' else None
             else:
                 # "[1,2,3]" -> [1,2,3]
-                dict = {'dataList': []}
-                exec('dataList=%s' % rdata_all[1:-1],  dict)
-                data = dict['dataList']
+                data_dict = {'dataList': []}
+                exec('dataList=%s' % rdata_all[1:-1],  data_dict)
+                data = data_dict['dataList']
         except:
             self.error('Serial: Decoding Failed')
             raise SystemError
@@ -359,16 +359,16 @@ class Debug_Command(object):
         return data
 
 if __name__ == "__main__":
-    mcu_debug = Debug_Command()
+    mcu_debug = DebugCommand()
     mcu_debug.print("\n")
-    mcu_debug.print("---- Command Line Interface for instrument ----\n")
+    mcu_debug.print("---- Command Line Interface for Instrument ----\n")
     mcu_debug.print("---- S: Message from system\n")
     mcu_debug.print("---- M: Message from MCU\n")
     mcu_debug.print("S: type your command, e.g., 'list_serial'\n\n")
     mcu_debug.print("S: scanning the serial port... wait !\n")
     mcu_debug.execute_cmd('list_serial')
 
-    while(True):
+    while True:
         time.sleep(0.01)
         input_cmd = input(">> ")
         try:
