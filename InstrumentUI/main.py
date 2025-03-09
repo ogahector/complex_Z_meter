@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import iqmethod as iq
 from enum import Enum
 
-ser = serial.Serial('COM5', 115200)
+ser = serial.Serial('COM9', 115200)
 vmeas0 = []
 vmeas1 = []
 
@@ -14,6 +14,13 @@ sc_calibration: dict[int, complex] = {}
 oc_calibration: dict[int, complex] = {}
 
 command = ""
+"""
+NOTE:
+Possible Commands:
+    1. b'M\n' : sends measurement instruction
+    2. b'C\n' : sends calibration instruction
+    3. b'x\n' : with x = [0:3] chooses which resistor to do the measurement with 
+"""
 
 class Resistors(Enum):
     RES0 = 0,
@@ -75,16 +82,16 @@ def get_calibrations():
 
 
 while True:
-    command = input("Enter command ('C' for calibration, 'M' for measurement): ")
+    if command == "":
+        command = input("Enter command ('C' for calibration, 'M' for measurement): ")
     if command == 'C':
         ser.write(b'C\n')
-        print('SENT C')
+        command == 'measuring'
     elif command == 'M':
         ser.write(b'M\n')
-        print('SENT M')
-    else:
-        print("Invalid command")
-        continue
+        command == 'calibrating'
+    # else:
+    #     continue
 
 
     reading = ser.readline()
@@ -92,13 +99,15 @@ while True:
     reading = str(reading)
 
     if 'DONE' in reading:
-        magnitudes = [abs(val) for _, val in measurement.items()]
+        frequencies = np.array(list(measurement.keys()))
+        phasors = np.array(list(measurement.values()))
+        magnitudes = np.array([abs(val) for _, val in measurement.items()])
         phases = [np.atan2(np.imag(val), np.real(val)) for _, val in measurement.items()]
 
         magnitudes_db = 20*np.log10(magnitudes)
 
         f1 = plt.figure()
-        plt.semilogx(measurement.keys(), magnitudes_db)
+        plt.semilogx(frequencies, magnitudes_db)
         plt.xlabel('Frequency [Hz]')
         plt.ylabel('Magnitude [dB]')
         plt.title("Magnitude plot")
@@ -106,12 +115,29 @@ while True:
         f1.savefig('mag plot no buffer.png')
 
         f2 = plt.figure()
-        plt.semilogx(measurement.keys(), 180/np.pi*np.array(phases))
+        plt.semilogx(frequencies, 180/np.pi*np.array(phases))
         plt.xlabel('Frequency [Hz]')
         plt.ylabel('Phase [deg]')
         plt.title("Phase plot")
         plt.grid(True)
         f2.savefig('phase plot no buffer.png')
+
+        # calculate an IMPEDANCE based on received voltage
+        Zm = 1000 * phasors / (1 - phasors)
+
+        f3 = plt.figure()
+        plt.semilogx(frequencies, 20*np.log10(abs(Zm)))
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel('Magnitude [dB]')
+        plt.title("Magnitude plot")
+        plt.grid(True)
+
+        f4 = plt.figure()
+        plt.semilogx(frequencies, 180/np.pi*np.array( np.atan2(np.imag(Zm), np.real(Zm)) ))
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel('Phase [deg]')
+        plt.title("Phase plot")
+        plt.grid(True)
 
         plt.show()
         break
@@ -127,7 +153,8 @@ while True:
         # print(reading)
         f0 = ast.literal_eval(reading[1])
         fs = ast.literal_eval(reading[2])
-        temp = [ast.literal_eval(r) for r in reading[3:-1]] # the rest
+        res = ast.literal_eval(reading[3])
+        temp = [ast.literal_eval(r) for r in reading[4:-1]] # the rest
 
         # if transmitting the list of vals
         # for i in range(len(temp)):
@@ -143,7 +170,7 @@ while True:
 
         measurement[f0] = phasor
 
-        print(f'f0: {f0} | fs: {fs} | phasor: {phasor:.3f}')
+        print(f'f0: {f0} | fs: {fs} | res:{res} | phasor: {phasor:.3f}')
 
         # plt.figure()
         # plt.plot(vmeas0)
