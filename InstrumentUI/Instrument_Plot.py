@@ -10,12 +10,12 @@ from PyQt6.QtWidgets import QMainWindow, QApplication
 import matplotlib
 matplotlib.use("Qt5Agg")
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 from matplotlib import gridspec
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+# from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # --------------------------------------------------------------
 # System Import
@@ -75,13 +75,13 @@ class Plot(QMainWindow):
     def save_image(self, path):
         self.canvas.save_image(path)
         
-    def test_img_gen(self):
-        img = []
-        # Temperature pixel if (r%5==2 and c%5==2)
-        for c in range(0, 204):
-            for r in range(0, 290):
-                img.append(511 if (r%5==2 and c%5==2) else 0)
-        return img
+    # def test_img_gen(self):
+    #     img = []
+    #     # Temperature pixel if (r%5==2 and c%5==2)
+    #     for c in range(0, 204):
+    #         for r in range(0, 290):
+    #             img.append(511 if (r%5==2 and c%5==2) else 0)
+    #     return img
                 
 class PlotCanvas(FigureCanvas):
 
@@ -92,13 +92,13 @@ class PlotCanvas(FigureCanvas):
         self.setParent(parent)
 
         # Define a grid layout with 20 rows and 10 columns
-        self.grid = gridspec.GridSpec(46, 20)
+        self.grid = gridspec.GridSpec(48, 20)
 
         # -------------------------------------------------
         # 1. Bode Plot (Magnitude & Phase) - Top section
         # -------------------------------------------------
         # Create an axis for the Bode magnitude plot
-        self.bode_mag_ax = self.figure.add_subplot(self.grid[0:9, 1:20])
+        self.bode_mag_ax = self.figure.add_subplot(self.grid[0:11, 1:20])
         self.bode_mag_ax.set_title("Magnitude", fontdict={'fontweight': 'bold'})
         # self.bode_mag_ax.set_xlabel("Frequency [Hz]", labelpad=-1)
         self.bode_mag_ax.set_ylabel("Magnitude [dB]", labelpad=-2)
@@ -107,7 +107,7 @@ class PlotCanvas(FigureCanvas):
         [self.bode_mag_fig] = self.bode_mag_ax.plot([], [], 'b-')  # Initialize with an empty plot
 
         # Create an axis for the Bode phase plot below the magnitude plot
-        self.bode_phase_ax = self.figure.add_subplot(self.grid[13:22, 1:20])
+        self.bode_phase_ax = self.figure.add_subplot(self.grid[14:25, 1:20])
         self.bode_phase_ax.set_title("Phase", fontdict={'fontweight': 'bold'})
         # self.bode_phase_ax.set_xlabel("Frequency [Hz]", labelpad=-1)
         self.bode_phase_ax.set_ylabel("Phase [degrees]", labelpad=-2)
@@ -119,7 +119,7 @@ class PlotCanvas(FigureCanvas):
         # 2. RLC Fit Curve & Error Plot - Middle section
         # -------------------------------------------------
         # Create an axis for the RLC fit curve
-        self.rlc_fit_ax = self.figure.add_subplot(self.grid[26:35, 1:8])
+        self.rlc_fit_ax = self.figure.add_subplot(self.grid[28:39, 1:8])
         self.rlc_fit_ax.set_title("RLC Fit", fontdict={'fontweight': 'bold'})
         # self.rlc_fit_ax.set_xlabel("Frequency [Hz]", labelpad=-1)
         self.rlc_fit_ax.set_ylabel("Voltage [V]", labelpad=-2)
@@ -128,7 +128,7 @@ class PlotCanvas(FigureCanvas):
         [self.rlc_fit_fig] = self.rlc_fit_ax.plot([], [], 'g-')  # Empty initial plot
 
         # Create an axis for the error plot (positioned next to the RLC fit plot)
-        self.rlc_error_ax = self.figure.add_subplot(self.grid[26:35, 12:20])
+        self.rlc_error_ax = self.figure.add_subplot(self.grid[28:39, 12:20])
         self.rlc_error_ax.set_title("Fit Error", fontdict={'fontweight': 'bold'})
         # self.rlc_error_ax.set_xlabel("Frequency [Hz]", labelpad=-1)
         self.rlc_error_ax.set_ylabel("Error [%]", labelpad=-2)
@@ -139,7 +139,7 @@ class PlotCanvas(FigureCanvas):
         # -------------------------------------------------
         # 3. Q Factor Plot - Bottom section
         # -------------------------------------------------
-        self.q_factor_ax = self.figure.add_subplot(self.grid[39:46, :])
+        self.q_factor_ax = self.figure.add_subplot(self.grid[42:48, :])
         self.q_factor_ax.set_title("Q Factor", fontdict={'fontweight': 'bold'})
         # self.q_factor_ax.set_xlabel("Frequency [Hz]", labelpad=-1)
         # self.q_factor_ax.set_ylabel("Q Factor")

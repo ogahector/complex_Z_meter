@@ -49,7 +49,7 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
         self.plot_obj.move(335, 20)
 
         # Serial ---------------------------------------------------------------------------------------------------------------
-        self.serial_obj           = Debug_Command()
+        self.serial_obj           = DebugCommand()
         self.serial_obj.status_s  = self.serial_status
         self.serial_obj.console_s = self.console_s
         self.serial_obj.msgbox_s  = self.msgbox_error_s
@@ -144,7 +144,7 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
         box.setStyleSheet('QMessageBox {font: 9pt "Consolas"}')
         box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         box.setText(msg)
-        return (box.exec()==QMessageBox.StandardButton.Yes)
+        return box.exec()==QMessageBox.StandardButton.Yes
 
     def ui_send_error(self, msg):
         box = QMessageBox()
@@ -201,7 +201,7 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
         try:
             folder_list = self.list_folder(folder_path)
         except:
-            if(self.ui_send_question("Would you like to create folder %s ?" % folder_path)):
+            if self.ui_send_question("Would you like to create folder %s ?" % folder_path):
                 try:
                     os.mkdir(folder_path)
                     folder_list = self.list_folder(folder_path)
@@ -211,9 +211,9 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
             else:
                 raise IOError
 
-        if(folder_name in folder_list):
-            if(ask):
-                if(not self.ui_send_question("Folder '%s' already existed !\nAre you sure to overwrite ?" % folder_name)):
+        if folder_name in folder_list:
+            if ask:
+                if not self.ui_send_question("Folder '%s' already existed !\nAre you sure to overwrite ?" % folder_name):
                     raise SystemError
         else:
             try:
@@ -286,7 +286,7 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
 
     def run_if_ready_else_exit(self, check_avail=1):
         # Check if serial is busy
-        if(self.ui_get_serial_status()):
+        if self.ui_get_serial_status():
             self.ui_send_error('Serial is busy, you must stop first !')
             raise SystemError
 
@@ -312,7 +312,7 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
 
     def serial_open_port_done(self, data):
         try:
-            if(data==[]):
+            if data==[]:
                 self.serial_port_comboBox.setCurrentIndex(len(self.serial_name)-1)
             else:
                 [ver, id, div, dac] = data
@@ -324,11 +324,11 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
 
     @pyqtSlot(int)
     def on_serial_port_comboBox_activated(self, index):
-        if(self.serial_obj.is_connected()):
+        if self.serial_obj.is_connected():
             self.serial_obj.close_serial()      # Close serial
             self.reset_ui()                     # Reset ui components
 
-        if(len(self.serial_name)==index+1):
+        if len(self.serial_name)==index+1:
             self.serial_list_port_t.start()
         else:
             self.serial_open_port_t.config(self.serial_port[index])
