@@ -1,11 +1,10 @@
 # --------------------------------------------------------------
 # UI Import
 # --------------------------------------------------------------
-from Ui_Instrument_Main import Ui_Instrument_Main
+from Ui_Instrument_Main import Ui_InstrumentMain
 
 from PyQt6.QtWidgets    import QMainWindow, QApplication
-from PyQt6.QtWidgets    import QMessageBox, QFileDialog, QCompleter
-from PyQt6.QtWidgets    import QInputDialog, QLineEdit
+from PyQt6.QtWidgets    import QFileDialog, QCompleter
 from PyQt6.QtWidgets    import QTableWidgetItem
 from PyQt6.QtCore       import pyqtSlot, pyqtSignal, Qt
 from PyQt6.QtGui        import QTextCursor, QColor, QFont
@@ -14,10 +13,12 @@ from PyQt6.QtGui        import QTextCursor, QColor, QFont
 # User Import
 # --------------------------------------------------------------
 from Instrument_Plot      import PlotCanvas
-from Instrument_Cmd       import *
+# from Instrument_Cmd       import *
+from TEST_Instrument_Cmd    import *
 from Instrument_Thread    import *
+from Instrument_Func      import *
 
-class Instrument_Main(QMainWindow, Ui_Instrument_Main):
+class InstrumentMain(QMainWindow, Ui_InstrumentMain):
 
     # Signal
     serial_status   = pyqtSignal(bool)
@@ -32,7 +33,7 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
     serial_port     = None
 
     def __init__(self, parent=None):
-        super(Instrument_Main, self).__init__(parent)
+        super(InstrumentMain, self).__init__(parent)
         self.setupUi(self)
 
         # Get UI System Parameter
@@ -49,7 +50,8 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
         self.plot_obj.move(335, 20)
 
         # Serial ---------------------------------------------------------------------------------------------------------------
-        self.serial_obj           = DebugCommand()
+        self.serial_obj           = TESTInstrumentCmd()
+        # self.serial_obj           = DebugCommand()
         self.serial_obj.status_s  = self.serial_status
         self.serial_obj.console_s = self.console_s
         self.serial_obj.msgbox_s  = self.msgbox_error_s
@@ -57,26 +59,38 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
         # Shared System signals ------------------------------------------------------------------------------------------------
         self.serial_status  .connect(self.ui_set_serial_status)
         self.console_s      .connect(self.ui_print)
-        self.msgbox_error_s .connect(self.ui_send_error)
-        self.msgbox_info_s  .connect(self.ui_send_info)
+        self.msgbox_error_s .connect(ui_send_error)
+        self.msgbox_info_s  .connect(ui_send_info)
 
         # Threads --------------------------------------------------------------------------------------------------------------
         # - List available serial ports
-        self.serial_list_port_t             = Serial_List_Port(self.serial_obj)
+        self.serial_list_port_t             = SerialListPort(self.serial_obj)
         self.serial_list_port_t.done_s      .connect(self.serial_list_port_done)
         self.serial_list_port_t             .start()
 
         # - Open serial port
-        self.serial_open_port_t             = Serial_Open_Port(self.serial_obj)
+        self.serial_open_port_t             = SerialOpenPort(self.serial_obj)
         self.serial_open_port_t.done_s      .connect(self.serial_open_port_done)
 
         # - Serial general command
-        self.serial_general_cmd_t           = Serial_General_Cmd(self.serial_obj)
+        self.serial_general_cmd_t           = SerialGeneralCmd(self.serial_obj)
         self.serial_general_cmd_t.done_s    = self.console_s
 
         # - Real-time Current Sensing
+        self.current_read_t                 = CurrentRead(self.serial_obj)
+        self.current_read_t.done_s          = self.console_s
 
         # - Temperature Readout
+        self.adc_read_t                     = ADCRead(self.serial_obj)
+        self.adc_read_t.done_s              = self.console_s
+
+        # - DAC Control
+        self.dac_control_t                  = DACControl(self.serial_obj)
+        self.dac_control_t.done_s           = self.console_s
+
+        # - Reference Resistor Control
+        self.reference_resistor_t           = ReferenceResistor(self.serial_obj)
+        self.reference_resistor_t.done_s    = self.console_s
 
         # Main process ---------------------------------------------------------------------------------------------------------
         # - Init
@@ -94,88 +108,16 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
     # ==========================================================================================================================
     # UI - System I/O
     # ==========================================================================================================================
-    # Read User input, accept --------------------------------------------------------------------------------------------------
-    # - 1) Dec: '123'
-    # - 2) Hex: '0xFF'
-    # - 3) Bin: '0b100'
-    def str2num(self, str):
-        try:
-            return int(str, 0)
-        except:
-            self.ui_send_error("Invalid Input: %s" % str)
-            raise ValueError
-
-    def str2dec(self, str):
-        try:
-            return float(str)
-        except:
-            self.ui_send_error("Invalid Input: %f" % str)
-            raise ValueError
-
-    # Set the color of ui items such as pushbutton -----------------------------------------------------------------------------
-    def ui_set_color_red(self, ui_obj):
-        ui_obj.setStyleSheet("background-color: #FF0000")
-
-    def ui_set_color_green(self, ui_obj):
-        ui_obj.setStyleSheet("background-color: #00FF00")
-
-    def ui_set_color_orange(self, ui_obj):
-        ui_obj.setStyleSheet("background-color: #FF8000")
-
-    def ui_set_color_gray(self, ui_obj):
-        ui_obj.setStyleSheet("background-color: #E1E1E1")
-
     # UI status ----------------------------------------------------------------------------------------------------------------
     # - True: Busy
     # - False: Idle
     def ui_set_serial_status(self, status):
         self.serial_status_title_label.setText('Busy' if status else 'Idle')
-        self.ui_set_color_red(self.serial_status_title_label) if status else \
-        self.ui_set_color_green(self.serial_status_title_label)
+        ui_set_color_red(self.serial_status_title_label) if status else \
+        ui_set_color_green(self.serial_status_title_label)
 
     def ui_get_serial_status(self):
         return False if self.serial_status_title_label.text()=='Idle' else True
-
-    # UI message box -----------------------------------------------------------------------------------------------------------
-    def ui_send_question(self, msg):
-        box = QMessageBox()
-        box.setWindowTitle("Question")
-        box.setIcon(QMessageBox.Icon.Warning)
-        box.setStyleSheet('QMessageBox {font: 9pt "Consolas"}')
-        box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        box.setText(msg)
-        return box.exec()==QMessageBox.StandardButton.Yes
-
-    def ui_send_error(self, msg):
-        box = QMessageBox()
-        box.setWindowTitle("Critical")
-        box.setIcon(QMessageBox.Icon.Warning)
-        box.setStyleSheet('QMessageBox {font: 9pt "Consolas"}')
-        box.setStandardButtons(QMessageBox.StandardButton.Yes)
-        box.setText(msg)
-        box.exec()
-
-    def ui_send_warning(self, msg):
-        box = QMessageBox()
-        box.setWindowTitle("Warning")
-        box.setIcon(QMessageBox.Icon.Warning)
-        box.setStyleSheet('QMessageBox {font: 9pt "Consolas"}')
-        box.setStandardButtons(QMessageBox.StandardButton.Yes)
-        box.setText(msg)
-        box.exec()
-
-    def ui_send_info(self, msg):
-        box = QMessageBox()
-        box.setWindowTitle("Information")
-        box.setIcon(QMessageBox.Icon.Information)
-        box.setStyleSheet('QMessageBox {font: 9pt "Consolas"}')
-        box.setStandardButtons(QMessageBox.StandardButton.Yes)
-        box.setText(msg)
-        box.exec()
-
-    def ui_get_password(self):
-        (text, ok) = QInputDialog.getText(None, "Authorization", "Password:", QLineEdit.Password)
-        return text if ok else None
 
     # UI file dialog -----------------------------------------------------------------------------------------------------------
     def ui_select_file(self, path_init='C:/'):
@@ -187,45 +129,10 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
     # ==========================================================================================================================
     # UI - File and Folder
     # ==========================================================================================================================
-    # List files and folders under the folder path -----------------------------------------------------------------------------
-    def list_folder(self, folder_path):
-        try:
-            folder_list = os.listdir(folder_path)
-        except:
-            self.ui_send_error("Invalid folder path !")
-            raise SystemError
-        return folder_list
-
-    # Check folder existence and create ----------------------------------------------------------------------------------------
-    def create_folder_if_not_existed(self, folder_path, folder_name, ask = False):
-        try:
-            folder_list = self.list_folder(folder_path)
-        except:
-            if self.ui_send_question("Would you like to create folder %s ?" % folder_path):
-                try:
-                    os.mkdir(folder_path)
-                    folder_list = self.list_folder(folder_path)
-                except:
-                    self.ui_send_error("Invalid path for folder creation'%s'" % folder_path)
-                    raise IOError
-            else:
-                raise IOError
-
-        if folder_name in folder_list:
-            if ask:
-                if not self.ui_send_question("Folder '%s' already existed !\nAre you sure to overwrite ?" % folder_name):
-                    raise SystemError
-        else:
-            try:
-                os.mkdir(folder_path + '/' + folder_name)
-            except:
-                self.ui_send_error("Invalid folder name: %s\nMust not contain space and \\ / : * ? \" < > |" % folder_name)
-                raise IOError
-
     # Create experiment folder depends on the date and user information --------------------------------------------------------
     def create_experiment_folder(self, folder_path, ask=True):
-        folder_name = self.ttn_get_folder_name()
-        self.create_folder_if_not_existed(folder_path, folder_name, ask=ask)
+        folder_name = self.get_folder_name()
+        create_folder_if_not_existed(folder_path, folder_name, ask=ask)
         folder_path = folder_path + '/' + folder_name
         return folder_path
 
@@ -233,14 +140,14 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
     def save_log(self, log_path):
         try:
             time_info = get_date_time(2)                # Date and time
-            log = self.console_textEdit.toPlainText()   # Log
+            log_write = self.console_textEdit.toPlainText()   # Log
             self.console_textEdit.clear()               # Clear
 
             file = open(log_path + '/' + '%s_instrument_log.txt' % time_info, 'a')
             file.write('-'*32 + '\n')
             file.write(time_info + '\n')
             file.write('-'*32 + '\n')
-            file.write(log)
+            file.write(log_write)
             file.close()
 
         except:
@@ -282,12 +189,12 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
     # UI - Update and Control
     # ================================================================================================================================
     def reset_ui(self):
-        self.ui_ttn_status_update(None)
+        self.ui_status_update(None)
 
     def run_if_ready_else_exit(self, check_avail=1):
         # Check if serial is busy
         if self.ui_get_serial_status():
-            self.ui_send_error('Serial is busy, you must stop first !')
+            ui_send_error('Serial is busy, you must stop first !')
             raise SystemError
 
     # ==========================================================================================================================
@@ -306,20 +213,22 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
             self.serial_port_comboBox.addItems(self.serial_name)
             self.serial_port_comboBox.setCurrentIndex(len(self.serial_name)-1)
 
-            self.ui_send_info('%d valid devices found !\n' % len(port_list))
+            ui_send_info('%d valid devices found !\n' % len(port_list))
         except:
-            self.ui_send_error("Error: fail to list serial port")
+            ui_send_error("Error: fail to list serial port")
 
     def serial_open_port_done(self, data):
         try:
-            if data==[]:
+            if not data:
                 self.serial_port_comboBox.setCurrentIndex(len(self.serial_name)-1)
             else:
-                [ver, id, div, dac] = data
+                [ver, device_id, div] = data
                 # UI
-                self.ui_send_info('Device detected ...\nFirmware:  %d\nClock: %.2f MHz' % (ver, 72.0 / (1<<div)))
+                self.clk_status_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.clk_status_title_label.setText('%.2f MHz' % (72.0 / (1 << div)))
+                ui_send_info('Device detected ...\nFirmware:  %d\nClock: %.2f MHz' % (ver, 72.0 / (1<<div)))
         except:
-            self.ui_send_error("Error: fail to open serial port")
+            ui_send_error("Error: fail to open serial port")
             self.serial_port_comboBox.setCurrentIndex(len(self.serial_name)-1)
 
     @pyqtSlot(int)
@@ -334,13 +243,65 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
             self.serial_open_port_t.config(self.serial_port[index])
             self.serial_open_port_t.start()
 
+    def get_folder_name(self):
+        exp_id      = self.exp_id_spinBox.value()
+        ttn_freq    = int(72000 / (8 << self.clk_status_title_label.currentIndex()))
+        user_com    = self.user_com_lineEdit.text()
+        folder_name = 'D%s_E%s_F%sKHz' % (get_date(), str(exp_id).zfill(2), str(ttn_freq).zfill(4))
+        if user_com!= '':
+            for n in range(len(user_com)):
+                user_chr = user_com[n]
+                if not (user_chr.isdigit() or user_chr.isalpha() or user_chr == '_'):
+                    ui_send_error("Only alphabet, digital and underscore are allowed for user comment !")
+                    raise SystemError
+            folder_name = folder_name + '_U_' + user_com
+        return folder_name
+
+    def ui_status_update(self, status):
+        # Reset
+        if status is None:
+            self.pwr_status_title_12V_label.setText('N/A')
+            self.pwr_status_title_neg12V_label.setText('N/A')
+            self.pwr_status_title_3V3_label.setText('N/A')
+            ui_set_color_red(self.pwr_status_title_12V_label)
+            ui_set_color_red(self.pwr_status_title_neg12V_label)
+            ui_set_color_red(self.pwr_status_title_3V3_label)
+            return
+
+        # Update
+        status_elec_12v     = status[0]
+        status_elec_neg12v  = status[1]
+        status_elec_3v3     = status[2]
+
+        if status_elec_12v:
+            self.pwr_status_title_12V_label.setText('Active')
+            ui_set_color_green(self.pwr_status_title_12V_label)
+        else:
+            self.pwr_status_title_12V_label.setText('Inactive')
+            ui_set_color_red(self.pwr_status_title_12V_label)
+
+        if status_elec_neg12v:
+            self.pwr_status_title_neg12V_label.setText('Active')
+            ui_set_color_green(self.pwr_status_title_neg12V_label)
+        else:
+            self.pwr_status_title_neg12V_label.setText('Inactive')
+            ui_set_color_red(self.pwr_status_title_neg12V_label)
+
+        if status_elec_3v3:
+            self.pwr_status_title_3V3_label.setText('Active')
+            ui_set_color_green(self.pwr_status_title_3V3_label)
+        else:
+            self.pwr_status_title_3V3_label.setText('Inactive')
+            ui_set_color_red(self.pwr_status_title_3V3_label)
+
+
 if __name__ == "__main__":
     import sys
     app = QApplication(sys.argv)
     app.setFont(QFont("Consolas", 10))
     # Enable Fusion style (better dark theme support)
     app.setStyle("Fusion")
-    ui = Instrument_Main()
+    ui = InstrumentMain()
     ui.show()
     sys.exit(app.exec())
 

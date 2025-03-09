@@ -26,38 +26,33 @@ command_table = \
     # ----------------------------------------------------------------
     "get_version":                      0x0000, 
     "get_id":                           0x0001,     # STM32 unique device id
+    "get_clk_divpw":                    0x0002,
+    "check_status_pos12":               0x0013,
+    "check_status_neg12":               0x0014,
+    "check_status_3v3":                 0x0015,
 
     # ----------------------------------------------------------------
     # STM32 Peripheral
     # ----------------------------------------------------------------
-    # - PWM
-    "tim2_set_pulse":                   0x1101, 
-    "tim2_get_pulse":                   0x0100, 
-    "tim3_set_period":                  0x1102, 
-    "tim3_get_period":                  0x0101, 
-    "tim3_get_pwm":                     0x0102,     # Reserved, not implemented
-    
+    "readout_time":                     0x2200,
+    "get_phasors":                      0x2202,
+    "start_sc_calib":                   0x2203,
+    "start_oc_calib":                   0x2204,
+    "stop_sc_calib":                    0x2205,
+    "stop_oc_calib":                    0x2206,
+    "rref_get_val":                     0x2300,
+    "rref_set_val":                     0x2301,
+
     # - DAC & ADC
     "dac_set_val":                      0x1103, 
     "dac_get_val":                      0x0103, 
-    "adc_get_val":                      0x0104, 
-    
-    # - I2C
-    "i2c_set_device":                   0x1104,
-    "i2c_get_device":                   0x0105,
-    "i2c_read_1":                       0x1105,
-    "i2c_read_2":                       0x1106,
-    "i2c_write_1":                      0x2100,
-    "i2c_write_2":                      0x2101,
+    "adc_get_val":                      0x0104,
+    "curr_get_val":                     0x0105,
 
     # - SPI
     "spi_transfer":                     0x1107, 
     "spi_init":                         0x0107, 
-    "spi_deinit":                       0x0108, 
-    
-    # - STS
-    "sts_read":                         0x2102,
-    "sts_ambient":                      0x0109,  
+    "spi_deinit":                       0x0108,
 
     # ----------------------------------------------------------------
     # - System Commands
@@ -73,6 +68,7 @@ for (key, value) in command_table.items():
     command_list.append(key)
 
 # - User Command Interface
+# noinspection PyBroadException
 class DebugCommand(object):
     
     # Assign pyqtSignal directly to those variables instead of connecting
@@ -177,8 +173,8 @@ class DebugCommand(object):
             self.print('No serial port connected\n')    # ? Close serial before opening
     
     # Decode command
-    def decode_cmd(self, input_cmd):
-        cmd = input_cmd.split(' ')
+    def decode_cmd(self, input_command):
+        cmd = input_command.split(' ')
         # Decode function
         try:
             func = command_table[cmd[0]]
@@ -211,8 +207,8 @@ class DebugCommand(object):
         return func, par1, par2
 
     # Execute command
-    def execute_cmd(self, input_cmd):
-        cmd_decoded = self.decode_cmd(input_cmd)
+    def execute_cmd(self, input_command):
+        cmd_decoded = self.decode_cmd(input_command)
         if cmd_decoded is None:
             return None
         else:
@@ -371,6 +367,7 @@ if __name__ == "__main__":
     while True:
         time.sleep(0.01)
         input_cmd = input(">> ")
+        # noinspection PyBroadException
         try:
             res = mcu_debug.execute_cmd(input_cmd.lower())
         except TimeoutError:

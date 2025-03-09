@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Instrument_Main</class>
- <widget class="QMainWindow" name="Instrument_Main">
+ <class>InstrumentMain</class>
+ <widget class="QMainWindow" name="InstrumentMain">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -227,7 +227,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Clock (MHz):</string>
+       <string>Clock:</string>
       </property>
      </widget>
      <widget class="QLabel" name="clk_status_title_label">
@@ -250,14 +250,8 @@
         <pointsize>8</pointsize>
        </font>
       </property>
-      <property name="styleSheet">
-       <string notr="true">background-color: rgb(0, 255, 0);</string>
-      </property>
       <property name="text">
-       <string>N/A</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignmentFlag::AlignCenter</set>
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;00.00 MHz&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
       </property>
      </widget>
     </widget>
@@ -718,6 +712,7 @@
       <property name="font">
        <font>
         <pointsize>8</pointsize>
+        <bold>false</bold>
        </font>
       </property>
       <property name="text">
@@ -736,6 +731,7 @@
       <property name="font">
        <font>
         <pointsize>8</pointsize>
+        <bold>false</bold>
        </font>
       </property>
       <property name="orientation">
@@ -757,6 +753,7 @@
       <property name="font">
        <font>
         <pointsize>8</pointsize>
+        <bold>false</bold>
        </font>
       </property>
       <property name="text">
@@ -829,6 +826,7 @@
       <property name="font">
        <font>
         <pointsize>8</pointsize>
+        <bold>false</bold>
        </font>
       </property>
       <property name="text">
@@ -1033,7 +1031,7 @@
        <bool>false</bool>
       </property>
      </widget>
-     <widget class="QLabel" name="pwr_status_title_12V_2">
+     <widget class="QLabel" name="pwr_status_title_12V_label">
       <property name="geometry">
        <rect>
         <x>190</x>
