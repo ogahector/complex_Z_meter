@@ -94,10 +94,25 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
 
         # Main process ---------------------------------------------------------------------------------------------------------
         # - Init
+        self.init_t = Init(self.serial_obj)
+        self.init_t.done_s.connect(self.init_done)
 
-        # - Calibration
+        # # - Short Calibration
+        # self.ttn_find_active_pixels_t = TTN_Find_Active_Pixels(self.serial_obj, self.plot_obj)
+        # self.ttn_find_active_pixels_t.done_s.connect(self.find_active_pixels_done)
+        #
+        # # - Open Calibration
+        # self.ttn_cali_vref_t = TTN_Calibrate_Vref(self.serial_obj)
+        # self.ttn_cali_vref_t.done_s.connect(self.cali_vref_done)
+        #
+        # # - Measurement
+        # self.ttn_eval_pixel_t = TTN_Evaluate_Pixel(self.serial_obj, self.plot_obj)
+        # self.ttn_eval_pixel_t.done_s.connect(self.eval_pixel_done)
 
         # User interface -------------------------------------------------------------------------------------------------------
+        # - TTN Check Status
+        self.ttn_check_status_t = CheckPowerStatus(self.serial_obj)
+        self.ttn_check_status_t.done_s.connect(self.check_status_done)
 
     def closeEvent(self, event):
         #if(not self.ui_send_question('Are you sure to quit ?')):
@@ -243,6 +258,16 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             self.serial_open_port_t.config(self.serial_port[index])
             self.serial_open_port_t.start()
 
+    @pyqtSlot()
+    def on_path_toolButton_clicked(self):
+        init_path = self.path_lineEdit.text()
+        folder_path = self.ui_select_folder(init_path)
+        if self.ui_cwd.replace('/', '\\') in folder_path:
+            folder_path = folder_path.replace(self.ui_cwd.replace('/', '\\'), '.')
+        elif self.ui_cwd.replace('\\', '/') in folder_path:
+            folder_path = folder_path.replace(self.ui_cwd.replace('\\', '/'), '.')
+        self.path_lineEdit.setText(folder_path if folder_path else init_path)
+
     def get_folder_name(self):
         exp_id      = self.exp_id_spinBox.value()
         ttn_freq    = int(72000 / (8 << self.clk_status_title_label.currentIndex()))
@@ -293,6 +318,168 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         else:
             self.pwr_status_title_3V3_label.setText('Inactive')
             ui_set_color_red(self.pwr_status_title_3V3_label)
+
+    def check_status_done(self, data_list):
+        # Update button text and show result
+        self.pwr_status_check_pushButton.setText('Check')
+        if data_list:
+            status_elec_12v = data_list[0]
+            status_elec_neg12v = data_list[1]
+            status_elec_3v3 = data_list[2]
+            self.ui_status_update([status_elec_12v == 1, status_elec_neg12v == 1, status_elec_3v3 == 1])
+            # Elec
+            if status_elec_12v == 0 or status_elec_neg12v == 0 or status_elec_3v3 == 0:
+                ui_send_error('PCB doesn\'t have correct voltage supplies :(')
+                return
+        else:
+            self.ui_status_update(None)
+
+    @pyqtSlot()
+    def on_pwr_status_check_pushButton_clicked(self):
+        try:
+            if self.pwr_status_check_pushButton.text()== 'Check':
+                # Check if free to run
+                self.run_if_ready_else_exit()
+                # Update label
+                self.pwr_status_check_pushButton.setText('Running')
+                # Start
+                self.ttn_check_status_t.start()
+            else:
+                ui_send_warning('Running, please wait...')
+        except:
+            pass
+
+    ############################################################################################################################
+    # Main Process
+    ############################################################################################################################
+    # Init
+    # --------------------------------------------------------------------------------------------------------------------------
+    def enter_init_step(self, file_path=None, next_step=False):
+        # UI
+        self.init_pushButton.setText('Running')
+        ui_set_color_red(self.init_pushButton)
+
+        # Thread
+        self.init_t.config(file_path, next_step)
+        self.init_t.start()
+
+    def leave_init_step(self, reset_readout=False):
+        # UI
+        self.init_pushButton.setText('Init')
+        ui_set_color_green(self.init_pushButton)
+
+    def init_done(self, data_list):
+        # Check if thread error
+        if data_list:
+            file_path = data_list[0]
+            next_step = data_list[1]
+            status = data_list[2]
+            # Update UI
+            self.ui_status_update([status == 2, None])
+            # Next step
+            if status == 2:
+                if next_step or ui_send_question('Start Short Calibration?'):
+                    self.leave_init_step()
+                    self.enter_ttn_find_active_pixels_step(file_path, next_step)
+                else:
+                    self.leave_init_step(True)
+                    ui_send_info('PCB has correct voltage supplies :)')
+                return
+            # TTN is inactive
+            if status == 0:
+                ui_send_error('Either power is not available or\nSPI failed')
+            elif status == 1:
+                ui_send_error('PCB doesn\'t have correct voltage supplies :(')
+
+            self.leave_init_step(True)
+
+        else:
+            self.ui_status_update(None)
+            self.leave_init_step(True)
+
+    @pyqtSlot()
+    def on_init_pushButton_clicked(self):
+        try:
+            if self.init_pushButton.text() == 'Init':
+                # Check if free to run
+                self.run_if_ready_else_exit(0)
+                # Create experiment folder
+                file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
+                # Start
+                self.enter_init_step(file_path=file_path, next_step=False)
+            else:
+                ui_send_warning('Running, please wait...')
+        except:
+            pass
+
+    # Short Calibration
+    # --------------------------------------------------------------------------------------------------------------------------
+    def enter_sc_step(self, file_path, next_step):
+        # UI
+        self.find_active_pixels_pushButton.setText('Running')
+        ui_set_color_red(self.find_active_pixels_pushButton)
+        self.read_start_pushButton.setText('Act_Pixel')
+        ui_set_color_red(self.start_pushButton)
+        # Thread
+        self.ttn_find_active_pixels_t.config(file_path, next_step)
+        self.ttn_find_active_pixels_t.start()
+
+    def leave_find_active_pixels_step(self, reset_readout=False):
+        # UI
+        self.ttn_find_active_pixels_pushButton.setText('Acti_Pixel')
+        self.ui_set_color_green(self.ttn_find_active_pixels_pushButton)
+        if (reset_readout):
+            self.read_start_pushButton.setText('Start')
+            self.ui_set_color_green(self.read_start_pushButton)
+
+    def find_active_pixels_done(self, data_list):
+        # Check if thread error
+        if (data_list != []):
+            file_path = data_list[0]
+            next_step = data_list[1]
+            n_active = data_list[2]  # Number of active pixels
+            well_pixel_on = data_list[3]  # Stores array in well [0,1,2,..,10]
+            # Note: Index 0 is the active pixels outside of the wells area
+
+            # Update well table in UI
+            WELLS_ROWS = self.wells_tableWidget.rowCount()
+            WELLS_COLS = self.wells_tableWidget.columnCount()
+            w = 1;
+            for r in range(WELLS_ROWS):
+                for c in range(WELLS_COLS):
+                    item = QTableWidgetItem(str(well_pixel_on[w]))  # create a new Item
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter);
+                    if (well_pixel_on[w] / 4374 > 0.4):
+                        item.setBackground(QColor(178, 223, 175))
+                    else:
+                        item.setBackground(QColor(255, 169, 187))
+                    self.wells_tableWidget.setItem(r, c, item)
+                    w = w + 1
+
+            # Next step
+            if (next_step or self.ui_send_question('Calibrate Vref?')):
+                self.leave_ttn_find_active_pixels_step()
+                self.enter_ttn_cali_vref_step(file_path, next_step)
+            else:
+                self.leave_ttn_find_active_pixels_step(True)
+                self.ui_send_info('Found %d active pixels :)' % n_active)
+        else:
+            self.leave_ttn_find_active_pixels_step(True)
+
+    @pyqtSlot()
+    def on_ttn_find_active_pixels_pushButton_clicked(self):
+        try:
+            if (self.ttn_find_active_pixels_pushButton.text() == 'Acti_Pixel'):
+                # Check if free to run
+                self.run_if_ready_else_exit()
+                # Create experiment folder
+                file_path = self.create_experiment_folder(self.read_path_lineEdit.text(), ask=False)
+                # Start
+                self.enter_ttn_find_active_pixels_step(file_path, False)
+            else:
+                self.ui_send_warning('Running, please wait...')
+        except:
+            pass
 
 
 if __name__ == "__main__":

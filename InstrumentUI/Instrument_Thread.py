@@ -39,12 +39,14 @@ class Init(QThread):
         # ----------------------------------------------------------------------------------------------------------------------
         try:
             # This cmd includes resent & init
-            status = self.serial_obj.execute_cmd('check_status_elec')
+            status_pos12 = self.serial_obj.execute_cmd('check_status_pos12')
+            status_neg12 = self.serial_obj.execute_cmd('check_status_neg12')
+            status_3v3 = self.serial_obj.execute_cmd('check_status_3v3')
         except Exception as e:
             print("Init: " + str(e))
             self.done_s.emit([])
         else:
-            self.done_s.emit([self.file_path, self.next_step, status])
+            self.done_s.emit([self.file_path, self.next_step, status_pos12, status_neg12, status_3v3])
         # ----------------------------------------------------------------------------------------------------------------------
         self.serial_obj.serial_timeout = 100000000
         # Reset
@@ -60,21 +62,24 @@ class Init(QThread):
 # - Queries the status of +12V, -12V, and 3.3V power rails
 # ==============================================================================================================================
 class CheckPowerStatus(QThread):
-    done_s = pyqtSignal(dict)
+    done_s = pyqtSignal(list)
 
     def __init__(self, serial, parent=None):
         super(CheckPowerStatus, self).__init__(parent)
         self.serial_obj = serial
 
     def run(self):
+        self.serial_obj.serial_timeout = 10000000
         try:
             pos12 = self.serial_obj.execute_cmd("check_status_pos12")
             neg12 = self.serial_obj.execute_cmd("check_status_neg12")
             v3_3 = self.serial_obj.execute_cmd("check_status_3v3")
-            self.done_s.emit({"+12V": pos12, "-12V": neg12, "3.3V": v3_3})
         except Exception as e:
-            print(f"CheckPowerStatus Error: {e}")
-            self.done_s.emit({"+12V": None, "-12V": None, "3.3V": None})
+            print(f"CheckPowerStatus Error:" + str(e))
+            self.done_s.emit([])
+        else:
+            self.done_s.emit([pos12, neg12, v3_3])
+        self.serial_obj.serial_timeout = 1000000
 
 
 # ==============================================================================================================================

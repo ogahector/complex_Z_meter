@@ -127,9 +127,9 @@ class TESTInstrumentCmd(object):
             "get_version": 1,
             "get_id": 12345678,
             "get_clk_divpw": 2,
-            "check_status_pos12": True,
-            "check_status_neg12": False,
-            "check_status_3v3": True,
+            "check_status_pos12": 1,
+            "check_status_neg12": 1,
+            "check_status_3v3": 1,
             "adc_get_val": random.randint(0, 4095),  # Simulating ADC values
             "curr_get_val": round(random.uniform(0.1, 2.0), 3),  # Simulating current values
             "dac_get_val": 512,
