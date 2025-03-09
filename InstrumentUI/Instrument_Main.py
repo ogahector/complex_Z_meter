@@ -39,14 +39,14 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
         self.ui_cwd = os.getcwd()
 
         # Initial UI size ------------------------------------------------------------------------------------------------------
-        self.setFixedSize(1030, 740)
+        self.setFixedSize(790, 910)
 
         # - Auto complete user command
         self.user_cmd_lineEdit.setCompleter(QCompleter(command_list, self.user_cmd_lineEdit))
 
         # Plot Canvas ----------------------------------------------------------------------------------------------------------
         self.plot_obj = PlotCanvas(self)
-        self.plot_obj.move(11, 11)
+        self.plot_obj.move(335, 20)
 
         # Serial ---------------------------------------------------------------------------------------------------------------
         self.serial_obj           = Debug_Command()

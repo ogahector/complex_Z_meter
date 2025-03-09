@@ -82,7 +82,7 @@ class PlotCanvas(FigureCanvas):
 
     def __init__(self, parent=None):
         # Tune dpi so that temperature pixels are well meshed
-        self.figure = Figure(figsize=(4, 9), dpi=88)
+        self.figure = Figure(figsize=(5, 10), dpi=88)
         FigureCanvas.__init__(self, self.figure)
         self.setParent(parent)
         
