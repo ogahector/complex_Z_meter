@@ -39,7 +39,7 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
         self.ui_cwd = os.getcwd()
 
         # Initial UI size ------------------------------------------------------------------------------------------------------
-        self.setFixedSize(1280, 820)
+        self.setFixedSize(1030, 740)
 
         # - Auto complete user command
         self.user_cmd_lineEdit.setCompleter(QCompleter(command_list, self.user_cmd_lineEdit))
@@ -337,7 +337,9 @@ class Instrument_Main(QMainWindow, Ui_Instrument_Main):
 if __name__ == "__main__":
     import sys
     app = QApplication(sys.argv)
-    app.setFont(QFont("Consolas", 9))
+    app.setFont(QFont("Consolas", 10))
+    # Enable Fusion style (better dark theme support)
+    app.setStyle("Fusion")
     ui = Instrument_Main()
     ui.show()
     sys.exit(app.exec())
