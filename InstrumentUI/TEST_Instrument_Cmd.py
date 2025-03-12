@@ -1,6 +1,7 @@
 import time
 import random
 
+
 class FakeSerial:
     """Fake serial port class to simulate STM32 responses."""
 
@@ -134,6 +135,8 @@ class TESTInstrumentCmd(object):
             "curr_get_val": round(random.uniform(0.1, 2.0), 3),  # Simulating current values
             "dac_get_val": 512,
             "rref_get_val": 1000,
+            "start_sc_calib": [{300, 20}, {100, 90}, {30, 45}],
+            "start_oc_calib": [{200, 10}, {10, 80}, {20, 25}],
         }
 
         # Handle writing commands to serial (simulating MCU response)
@@ -146,9 +149,14 @@ class TESTInstrumentCmd(object):
 
     def list_serial(self, show=False):
         """Simulate listing available serial ports."""
-        return (["TESTPort1", "TESTPort2"], ["COM3", "COM4"])
+        return ["TESTPort1", "TESTPort2"], ["COM3", "COM4"]
 
     def clear(self):
         """Simulate clearing the serial buffer."""
         self.serial_obj.flush()
 
+    def print(self, message):
+        if self.console_s is None:
+            print(message, end='')
+        else:
+            self.console_s.emit(message)

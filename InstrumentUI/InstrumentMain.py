@@ -3,34 +3,34 @@
 # --------------------------------------------------------------
 from Ui_Instrument_Main import Ui_InstrumentMain
 
-from PyQt6.QtWidgets    import QMainWindow, QApplication
-from PyQt6.QtWidgets    import QFileDialog, QCompleter
-from PyQt6.QtWidgets    import QTableWidgetItem
-from PyQt6.QtCore       import pyqtSlot, pyqtSignal, Qt
-from PyQt6.QtGui        import QTextCursor, QColor, QFont
+from PyQt6.QtWidgets import QMainWindow, QApplication
+from PyQt6.QtWidgets import QFileDialog, QCompleter
+from PyQt6.QtWidgets import QTableWidgetItem
+from PyQt6.QtCore import pyqtSlot, pyqtSignal, Qt
+from PyQt6.QtGui import QTextCursor, QColor, QFont
 
 # --------------------------------------------------------------
 # User Import
 # --------------------------------------------------------------
-from Instrument_Plot      import PlotCanvas
+from Instrument_Plot import PlotCanvas
 # from Instrument_Cmd       import *
-from TEST_Instrument_Cmd    import *
-from Instrument_Thread    import *
-from Instrument_Func      import *
+from TEST_Instrument_Cmd import *
+from Instrument_Thread import *
+from Instrument_Func import *
+
 
 class InstrumentMain(QMainWindow, Ui_InstrumentMain):
-
     # Signal
-    serial_status   = pyqtSignal(bool)
-    console_s       = pyqtSignal(str)
+    serial_status = pyqtSignal(bool)
+    console_s = pyqtSignal(str)
 
-    msgbox_error_s  = pyqtSignal(str)
-    msgbox_info_s   = pyqtSignal(str)
+    msgbox_error_s = pyqtSignal(str)
+    msgbox_info_s = pyqtSignal(str)
 
     # Variable
-    serial_obj      = None                   # Instance of Serial
-    serial_name     = [None, 'Refresh']      # List of serial com port
-    serial_port     = None
+    serial_obj = None  # Instance of Serial
+    serial_name = [None, 'Refresh']  # List of serial com port
+    serial_port = None
 
     def __init__(self, parent=None):
         super(InstrumentMain, self).__init__(parent)
@@ -50,64 +50,72 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         self.plot_obj.move(335, 20)
 
         # Serial ---------------------------------------------------------------------------------------------------------------
-        self.serial_obj           = TESTInstrumentCmd()
+        self.serial_obj = TESTInstrumentCmd()
         # self.serial_obj           = DebugCommand()
-        self.serial_obj.status_s  = self.serial_status
+        self.serial_obj.status_s = self.serial_status
         self.serial_obj.console_s = self.console_s
-        self.serial_obj.msgbox_s  = self.msgbox_error_s
+        self.serial_obj.msgbox_s = self.msgbox_error_s
 
         # Shared System signals ------------------------------------------------------------------------------------------------
-        self.serial_status  .connect(self.ui_set_serial_status)
-        self.console_s      .connect(self.ui_print)
-        self.msgbox_error_s .connect(ui_send_error)
-        self.msgbox_info_s  .connect(ui_send_info)
+        self.serial_status.connect(self.ui_set_serial_status)
+        self.console_s.connect(self.ui_print)
+        self.msgbox_error_s.connect(ui_send_error)
+        self.msgbox_info_s.connect(ui_send_info)
 
         # Threads --------------------------------------------------------------------------------------------------------------
         # - List available serial ports
-        self.serial_list_port_t             = SerialListPort(self.serial_obj)
-        self.serial_list_port_t.done_s      .connect(self.serial_list_port_done)
-        self.serial_list_port_t             .start()
+        self.serial_list_port_t = SerialListPort(self.serial_obj)
+        self.serial_list_port_t.done_s.connect(self.serial_list_port_done)
+        self.serial_list_port_t.start()
 
         # - Open serial port
-        self.serial_open_port_t             = SerialOpenPort(self.serial_obj)
-        self.serial_open_port_t.done_s      .connect(self.serial_open_port_done)
+        self.serial_open_port_t = SerialOpenPort(self.serial_obj)
+        self.serial_open_port_t.done_s.connect(self.serial_open_port_done)
 
         # - Serial general command
-        self.serial_general_cmd_t           = SerialGeneralCmd(self.serial_obj)
-        self.serial_general_cmd_t.done_s    = self.console_s
+        self.serial_general_cmd_t = SerialGeneralCmd(self.serial_obj)
+        self.serial_general_cmd_t.done_s = self.console_s
 
         # - Real-time Current Sensing
-        self.current_read_t                 = CurrentRead(self.serial_obj)
-        self.current_read_t.done_s          = self.console_s
+        self.current_read_t = CurrentRead(self.serial_obj)
+        self.current_read_t.done_s = self.console_s
 
         # - Temperature Readout
-        self.adc_read_t                     = ADCRead(self.serial_obj)
-        self.adc_read_t.done_s              = self.console_s
+        self.adc_read_t = ADCRead(self.serial_obj)
+        self.adc_read_t.done_s = self.console_s
 
         # - DAC Control
-        self.dac_control_t                  = DACControl(self.serial_obj)
-        self.dac_control_t.done_s           = self.console_s
+        self.dac_control_t = DACControl(self.serial_obj)
+        self.dac_control_t.done_s = self.console_s
 
         # - Reference Resistor Control
-        self.reference_resistor_t           = ReferenceResistor(self.serial_obj)
-        self.reference_resistor_t.done_s    = self.console_s
+        self.reference_resistor_t = ReferenceResistor(self.serial_obj)
+        self.reference_resistor_t.done_s = self.console_s
 
         # Main process ---------------------------------------------------------------------------------------------------------
         # - Init
         self.init_t = Init(self.serial_obj)
         self.init_t.done_s.connect(self.init_done)
 
-        # # - Short Calibration
-        # self.ttn_find_active_pixels_t = TTN_Find_Active_Pixels(self.serial_obj, self.plot_obj)
-        # self.ttn_find_active_pixels_t.done_s.connect(self.find_active_pixels_done)
-        #
-        # # - Open Calibration
-        # self.ttn_cali_vref_t = TTN_Calibrate_Vref(self.serial_obj)
-        # self.ttn_cali_vref_t.done_s.connect(self.cali_vref_done)
-        #
-        # # - Measurement
-        # self.ttn_eval_pixel_t = TTN_Evaluate_Pixel(self.serial_obj, self.plot_obj)
-        # self.ttn_eval_pixel_t.done_s.connect(self.eval_pixel_done)
+        # - Short Calibration
+        self.sc_t = ShortCalibration(self.serial_obj, self.plot_obj)
+        self.sc_t.done_s.connect(self.sc_step_done)
+
+        # - Open Calibration
+        self.oc_t = OpenCalibration(self.serial_obj, self.plot_obj)
+        self.oc_t.done_s.connect(self.oc_step_done)
+
+        # - Measurement Readout
+        self.meas_t = ReadoutMeasurement(self.serial_obj, self.plot_obj)
+        self.meas_t.done_s.connect(self.meas_step_done)
+
+        # - RLC Fitting
+        self.rlc_t = RLCFitting(self.serial_obj, self.plot_obj)
+        self.rlc_t.done_s.connect(self.meas_step_done)
+
+        # - Q Factor
+        self.qf_t = QFactor(self.serial_obj, self.plot_obj)
+        self.qf_t.done_s.connect(self.meas_step_done)
 
         # User interface -------------------------------------------------------------------------------------------------------
         # - TTN Check Status
@@ -115,10 +123,10 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         self.ttn_check_status_t.done_s.connect(self.check_status_done)
 
     def closeEvent(self, event):
-        #if(not self.ui_send_question('Are you sure to quit ?')):
-        #    event.ignore()
-        #else:
-        self.serial_obj.close_serial()
+        if not ui_send_question('Are you sure to quit ?'):
+            event.ignore()
+        else:
+            self.serial_obj.close_serial()
 
     # ==========================================================================================================================
     # UI - System I/O
@@ -129,10 +137,10 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     def ui_set_serial_status(self, status):
         self.serial_status_title_label.setText('Busy' if status else 'Idle')
         ui_set_color_red(self.serial_status_title_label) if status else \
-        ui_set_color_green(self.serial_status_title_label)
+            ui_set_color_green(self.serial_status_title_label)
 
     def ui_get_serial_status(self):
-        return False if self.serial_status_title_label.text()=='Idle' else True
+        return False if self.serial_status_title_label.text() == 'Idle' else True
 
     # UI file dialog -----------------------------------------------------------------------------------------------------------
     def ui_select_file(self, path_init='C:/'):
@@ -154,14 +162,14 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     # Save logs ----------------------------------------------------------------------------------------------------------------
     def save_log(self, log_path):
         try:
-            time_info = get_date_time(2)                # Date and time
-            log_write = self.console_textEdit.toPlainText()   # Log
-            self.console_textEdit.clear()               # Clear
+            time_info = get_date_time(2)  # Date and time
+            log_write = self.console_textEdit.toPlainText()  # Log
+            self.console_textEdit.clear()  # Clear
 
             file = open(log_path + '/' + '%s_instrument_log.txt' % time_info, 'a')
-            file.write('-'*32 + '\n')
+            file.write('-' * 32 + '\n')
             file.write(time_info + '\n')
-            file.write('-'*32 + '\n')
+            file.write('-' * 32 + '\n')
             file.write(log_write)
             file.close()
 
@@ -183,7 +191,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
 
     def serial_general_cmd(self, command, response=True):
         self.serial_general_cmd_t.response = response
-        self.serial_general_cmd_t.command  = command
+        self.serial_general_cmd_t.command = command
         self.serial_general_cmd_t.start()
 
     @pyqtSlot()
@@ -206,7 +214,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     def reset_ui(self):
         self.ui_status_update(None)
 
-    def run_if_ready_else_exit(self, check_avail=1):
+    def run_if_ready_else_exit(self):
         # Check if serial is busy
         if self.ui_get_serial_status():
             ui_send_error('Serial is busy, you must stop first !')
@@ -226,7 +234,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             self.serial_port = port_list
             self.serial_name.append('Refresh')
             self.serial_port_comboBox.addItems(self.serial_name)
-            self.serial_port_comboBox.setCurrentIndex(len(self.serial_name)-1)
+            self.serial_port_comboBox.setCurrentIndex(len(self.serial_name) - 1)
 
             ui_send_info('%d valid devices found !\n' % len(port_list))
         except:
@@ -235,24 +243,24 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     def serial_open_port_done(self, data):
         try:
             if not data:
-                self.serial_port_comboBox.setCurrentIndex(len(self.serial_name)-1)
+                self.serial_port_comboBox.setCurrentIndex(len(self.serial_name) - 1)
             else:
                 [ver, device_id, div] = data
                 # UI
                 self.clk_status_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.clk_status_title_label.setText('%.2f MHz' % (72.0 / (1 << div)))
-                ui_send_info('Device detected ...\nFirmware:  %d\nClock: %.2f MHz' % (ver, 72.0 / (1<<div)))
+                ui_send_info('Device detected ...\nFirmware:  %d\nClock: %.2f MHz' % (ver, 72.0 / (1 << div)))
         except:
             ui_send_error("Error: fail to open serial port")
-            self.serial_port_comboBox.setCurrentIndex(len(self.serial_name)-1)
+            self.serial_port_comboBox.setCurrentIndex(len(self.serial_name) - 1)
 
     @pyqtSlot(int)
     def on_serial_port_comboBox_activated(self, index):
         if self.serial_obj.is_connected():
-            self.serial_obj.close_serial()      # Close serial
-            self.reset_ui()                     # Reset ui components
+            self.serial_obj.close_serial()  # Close serial
+            self.reset_ui()  # Reset ui components
 
-        if len(self.serial_name)==index+1:
+        if len(self.serial_name) == index + 1:
             self.serial_list_port_t.start()
         else:
             self.serial_open_port_t.config(self.serial_port[index])
@@ -269,11 +277,10 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         self.path_lineEdit.setText(folder_path if folder_path else init_path)
 
     def get_folder_name(self):
-        exp_id      = self.exp_id_spinBox.value()
-        ttn_freq    = int(72000 / (8 << self.clk_status_title_label.currentIndex()))
-        user_com    = self.user_com_lineEdit.text()
-        folder_name = 'D%s_E%s_F%sKHz' % (get_date(), str(exp_id).zfill(2), str(ttn_freq).zfill(4))
-        if user_com!= '':
+        exp_id = self.exp_id_spinBox.value()
+        user_com = self.user_com_lineEdit.text()
+        folder_name = 'D%s_E%s' % (get_date(), str(exp_id).zfill(2))
+        if user_com != '':
             for n in range(len(user_com)):
                 user_chr = user_com[n]
                 if not (user_chr.isdigit() or user_chr.isalpha() or user_chr == '_'):
@@ -294,9 +301,9 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             return
 
         # Update
-        status_elec_12v     = status[0]
-        status_elec_neg12v  = status[1]
-        status_elec_3v3     = status[2]
+        status_elec_12v = status[0]
+        status_elec_neg12v = status[1]
+        status_elec_3v3 = status[2]
 
         if status_elec_12v:
             self.pwr_status_title_12V_label.setText('Active')
@@ -337,7 +344,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     @pyqtSlot()
     def on_pwr_status_check_pushButton_clicked(self):
         try:
-            if self.pwr_status_check_pushButton.text()== 'Check':
+            if self.pwr_status_check_pushButton.text() == 'Check':
                 # Check if free to run
                 self.run_if_ready_else_exit()
                 # Update label
@@ -363,7 +370,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         self.init_t.config(file_path, next_step)
         self.init_t.start()
 
-    def leave_init_step(self, reset_readout=False):
+    def leave_init_step(self):
         # UI
         self.init_pushButton.setText('Init')
         ui_set_color_green(self.init_pushButton)
@@ -375,34 +382,32 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             next_step = data_list[1]
             status = data_list[2]
             # Update UI
-            self.ui_status_update([status == 2, None])
+            self.ui_status_update([status, status, status])
             # Next step
-            if status == 2:
-                if next_step or ui_send_question('Start Short Calibration?'):
+            if status:
+                if next_step or ui_send_question('Start short circuit calibration?'):
                     self.leave_init_step()
-                    self.enter_ttn_find_active_pixels_step(file_path, next_step)
+                    self.enter_sc_step(file_path, next_step)
                 else:
-                    self.leave_init_step(True)
+                    self.leave_init_step()
                     ui_send_info('PCB has correct voltage supplies :)')
                 return
-            # TTN is inactive
-            if status == 0:
-                ui_send_error('Either power is not available or\nSPI failed')
-            elif status == 1:
+            # PCB is inactive
+            else:
                 ui_send_error('PCB doesn\'t have correct voltage supplies :(')
 
-            self.leave_init_step(True)
+            self.leave_init_step()
 
         else:
             self.ui_status_update(None)
-            self.leave_init_step(True)
+            self.leave_init_step()
 
     @pyqtSlot()
     def on_init_pushButton_clicked(self):
         try:
             if self.init_pushButton.text() == 'Init':
                 # Check if free to run
-                self.run_if_ready_else_exit(0)
+                self.run_if_ready_else_exit()
                 # Create experiment folder
                 file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
                 # Start
@@ -416,74 +421,218 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     # --------------------------------------------------------------------------------------------------------------------------
     def enter_sc_step(self, file_path, next_step):
         # UI
-        self.find_active_pixels_pushButton.setText('Running')
-        ui_set_color_red(self.find_active_pixels_pushButton)
-        self.read_start_pushButton.setText('Act_Pixel')
-        ui_set_color_red(self.start_pushButton)
+        self.sc_pushButton.setText('Running')
+        ui_set_color_red(self.sc_pushButton)
         # Thread
-        self.ttn_find_active_pixels_t.config(file_path, next_step)
-        self.ttn_find_active_pixels_t.start()
+        self.sc_t.config(file_path, next_step)
+        self.sc_t.start()
 
-    def leave_find_active_pixels_step(self, reset_readout=False):
+    def leave_sc_step(self):
         # UI
-        self.ttn_find_active_pixels_pushButton.setText('Acti_Pixel')
-        self.ui_set_color_green(self.ttn_find_active_pixels_pushButton)
-        if (reset_readout):
-            self.read_start_pushButton.setText('Start')
-            self.ui_set_color_green(self.read_start_pushButton)
+        self.sc_pushButton.setText('SC')
+        ui_set_color_green(self.sc_pushButton)
 
-    def find_active_pixels_done(self, data_list):
+    def sc_step_done(self, data_list):
         # Check if thread error
-        if (data_list != []):
+        if data_list:
             file_path = data_list[0]
             next_step = data_list[1]
             n_active = data_list[2]  # Number of active pixels
             well_pixel_on = data_list[3]  # Stores array in well [0,1,2,..,10]
-            # Note: Index 0 is the active pixels outside of the wells area
-
-            # Update well table in UI
-            WELLS_ROWS = self.wells_tableWidget.rowCount()
-            WELLS_COLS = self.wells_tableWidget.columnCount()
-            w = 1;
-            for r in range(WELLS_ROWS):
-                for c in range(WELLS_COLS):
-                    item = QTableWidgetItem(str(well_pixel_on[w]))  # create a new Item
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter);
-                    if (well_pixel_on[w] / 4374 > 0.4):
-                        item.setBackground(QColor(178, 223, 175))
-                    else:
-                        item.setBackground(QColor(255, 169, 187))
-                    self.wells_tableWidget.setItem(r, c, item)
-                    w = w + 1
+            # Note: Index 0 is the active pixels outside the wells area
 
             # Next step
-            if (next_step or self.ui_send_question('Calibrate Vref?')):
-                self.leave_ttn_find_active_pixels_step()
-                self.enter_ttn_cali_vref_step(file_path, next_step)
+            if next_step or ui_send_question('Start open circuit calibration?'):
+                self.leave_sc_step()
+                self.enter_oc_step(file_path, next_step)
             else:
-                self.leave_ttn_find_active_pixels_step(True)
-                self.ui_send_info('Found %d active pixels :)' % n_active)
+                self.leave_sc_step()
+                ui_send_info('Short circuit calibration done :)')
         else:
-            self.leave_ttn_find_active_pixels_step(True)
+            self.leave_sc_step()
 
     @pyqtSlot()
-    def on_ttn_find_active_pixels_pushButton_clicked(self):
+    def on_sc_pushButton_clicked(self):
         try:
-            if (self.ttn_find_active_pixels_pushButton.text() == 'Acti_Pixel'):
+            if self.sc_pushButton.text() == 'SC':
                 # Check if free to run
                 self.run_if_ready_else_exit()
                 # Create experiment folder
-                file_path = self.create_experiment_folder(self.read_path_lineEdit.text(), ask=False)
+                file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
                 # Start
-                self.enter_ttn_find_active_pixels_step(file_path, False)
+                self.enter_sc_step(file_path, False)
             else:
-                self.ui_send_warning('Running, please wait...')
+                ui_send_warning('Running, please wait...')
         except:
             pass
+
+    # Open Calibration
+    # --------------------------------------------------------------------------------------------------------------------------
+    def enter_oc_step(self, file_path, next_step):
+        # UI
+        self.oc_pushButton.setText('Running')
+        ui_set_color_red(self.oc_pushButton)
+        # Thread
+        self.oc_t.config(file_path, next_step)
+        self.oc_t.start()
+
+    def leave_oc_step(self):
+        # UI
+        self.oc_pushButton.setText('OC')
+        ui_set_color_green(self.oc_pushButton)
+
+    def oc_step_done(self, data_list):
+        # Check if thread error
+        if data_list:
+            file_path = data_list[0]
+            next_step = data_list[1]
+            n_active = data_list[2]  # Number of active pixels
+            well_pixel_on = data_list[3]  # Stores array in well [0,1,2,..,10]
+            # Note: Index 0 is the active pixels outside the wells area
+
+            # Next step
+            if next_step or ui_send_question('Start measurement?'):
+                self.leave_oc_step()
+                self.enter_meas_step(file_path, next_step)
+            else:
+                self.leave_oc_step()
+                ui_send_info('Open circuit calibration done :)')
+        else:
+            self.leave_oc_step()
+
+    @pyqtSlot()
+    def on_oc_pushButton_clicked(self):
+        try:
+            if self.oc_pushButton.text() == 'OC':
+                # Check if free to run
+                self.run_if_ready_else_exit()
+                # Create experiment folder
+                file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
+                # Start
+                self.enter_oc_step(file_path, False)
+            else:
+                ui_send_warning('Running, please wait...')
+        except:
+            pass
+
+    # Measurement Step
+    # --------------------------------------------------------------------------------------------------------------------------
+
+    def enter_meas_step(self, file_path, next_step):
+        # UI
+        self.measure_pushButton.setText('Running')
+        ui_set_color_red(self.measure_pushButton)
+        # Thread
+        self.meas_t.config(file_path, next_step)
+        self.meas_t.start()
+
+    def leave_meas_step(self):
+        self.measure_pushButton.setText('Measure')
+        ui_set_color_green(self.measure_pushButton)
+
+    def meas_step_done(self, data_list):
+        self.leave_meas_step()
+        if data_list:
+            file_path, next_step = data_list[:2]
+            if next_step or ui_send_question('Start RLC Fitting?'):
+                self.leave_meas_step()
+                self.enter_rlc_step(file_path, next_step)
+            else:
+                self.leave_oc_step()
+                ui_send_info('Measurement stage done :)')
+        else:
+            self.leave_meas_step()
+
+    @pyqtSlot()
+    def on_measure_pushButton_clicked(self):
+        try:
+            if self.measure_pushButton.text() == 'Measure':
+                self.run_if_ready_else_exit()
+                file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
+                self.enter_meas_step(file_path, False)
+            else:
+                ui_send_warning('Running, please wait...')
+        except:
+            pass
+
+    # RLC Fit Step
+    # --------------------------------------------------------------------------------------------------------------------------
+
+    def enter_rlc_step(self, file_path, next_step):
+        # UI
+        self.rlc_pushButton.setText('Running')
+        ui_set_color_red(self.rlc_pushButton)
+        # Thread
+        self.rlc_t.config(file_path, next_step)
+        self.rlc_t.start()
+
+    def leave_rlc_step(self):
+        self.rlc_pushButton.setText('RLC Fitting')
+        ui_set_color_green(self.rlc_pushButton)
+
+    def rlc_step_done(self, data_list):
+        self.leave_rlc_step()
+        if data_list:
+            file_path, next_step = data_list[:2]
+            if next_step or ui_send_question('Start Q Factor calculation?'):
+                self.leave_rlc_step()
+                self.enter_qf_step(file_path, next_step)
+            else:
+                self.leave_oc_step()
+                ui_send_info('Measurement stage done :)')
+        else:
+            self.leave_rlc_step()
+
+    @pyqtSlot()
+    def on_rlc_pushButton_clicked(self):
+        try:
+            if self.rlc_pushButton.text() == 'RLC Fit':
+                self.run_if_ready_else_exit()
+                file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
+                self.enter_rlc_step(file_path, False)
+            else:
+                ui_send_warning('Running, please wait...')
+        except:
+            pass
+
+    # Q Factor Step
+    # --------------------------------------------------------------------------------------------------------------------------
+
+    def enter_qf_step(self, file_path, next_step):
+        # UI
+        self.qfactor_pushButton.setText('Running')
+        ui_set_color_red(self.qfactor_pushButton)
+        # Thread
+        self.qf_t.config(file_path, next_step)
+        self.qf_t.start()
+
+    def leave_qf_step(self):
+        self.qfactor_pushButton.setText('Q Factor')
+        ui_set_color_green(self.qfactor_pushButton)
+
+    def qf_step_done(self, data_list):
+        self.leave_qf_step()
+        if data_list:
+            ui_send_info('Done :)')
+
+    @pyqtSlot()
+    def on_qfactor_pushButton_clicked(self):
+        try:
+            if self.qfactor_pushButton.text() == 'Q Factor':
+                self.run_if_ready_else_exit()
+                file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
+                self.enter_qf_step(file_path, False)
+            else:
+                ui_send_warning('Running, please wait...')
+        except:
+            pass
+
+    # --------------------------------------------------------------------------------------------------------------------------
 
 
 if __name__ == "__main__":
     import sys
+
     app = QApplication(sys.argv)
     app.setFont(QFont("Consolas", 10))
     # Enable Fusion style (better dark theme support)
@@ -491,4 +640,3 @@ if __name__ == "__main__":
     ui = InstrumentMain()
     ui.show()
     sys.exit(app.exec())
-
