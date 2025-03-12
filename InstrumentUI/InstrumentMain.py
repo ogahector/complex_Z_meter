@@ -98,11 +98,11 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         self.init_t.done_s.connect(self.init_done)
 
         # - Short Calibration
-        self.sc_t = ShortCalibration(self.serial_obj, self.plot_obj)
+        self.sc_t = ShortCalibration(self.serial_obj, self.plot_obj, self.plot_obj)
         self.sc_t.done_s.connect(self.sc_step_done)
 
         # - Open Calibration
-        self.oc_t = OpenCalibration(self.serial_obj, self.plot_obj)
+        self.oc_t = OpenCalibration(self.serial_obj, self.plot_obj, self.plot_obj)
         self.oc_t.done_s.connect(self.oc_step_done)
 
         # - Measurement Readout
@@ -110,11 +110,11 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         self.meas_t.done_s.connect(self.meas_step_done)
 
         # - RLC Fitting
-        self.rlc_t = RLCFitting(self.serial_obj, self.plot_obj)
+        self.rlc_t = RLCFitting(self.serial_obj, self.plot_obj, self.plot_obj)
         self.rlc_t.done_s.connect(self.meas_step_done)
 
         # - Q Factor
-        self.qf_t = QFactor(self.serial_obj, self.plot_obj)
+        self.qf_t = QFactor(self.serial_obj, self.plot_obj, self.plot_obj)
         self.qf_t.done_s.connect(self.meas_step_done)
 
         # User interface -------------------------------------------------------------------------------------------------------
@@ -173,7 +173,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             file.write(log_write)
             file.close()
 
-        except:
+        except Exception:
             # If the user tries to fool the UI (delete the folder during the experiment)
             # - I would not care..., currently...
             pass
@@ -205,7 +205,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             self.user_cmd_lineEdit.clear()
             self.ui_print(">> %s\n" % user_cmd)
             self.serial_general_cmd(user_cmd)
-        except:
+        except Exception:
             pass
 
     # ================================================================================================================================
@@ -237,7 +237,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             self.serial_port_comboBox.setCurrentIndex(len(self.serial_name) - 1)
 
             ui_send_info('%d valid devices found !\n' % len(port_list))
-        except:
+        except Exception:
             ui_send_error("Error: fail to list serial port")
 
     def serial_open_port_done(self, data):
@@ -250,7 +250,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 self.clk_status_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.clk_status_title_label.setText('%.2f MHz' % (72.0 / (1 << div)))
                 ui_send_info('Device detected ...\nFirmware:  %d\nClock: %.2f MHz' % (ver, 72.0 / (1 << div)))
-        except:
+        except Exception:
             ui_send_error("Error: fail to open serial port")
             self.serial_port_comboBox.setCurrentIndex(len(self.serial_name) - 1)
 
@@ -353,7 +353,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 self.ttn_check_status_t.start()
             else:
                 ui_send_warning('Running, please wait...')
-        except:
+        except Exception:
             pass
 
     ############################################################################################################################
@@ -414,7 +414,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 self.enter_init_step(file_path=file_path, next_step=False)
             else:
                 ui_send_warning('Running, please wait...')
-        except:
+        except Exception:
             pass
 
     # Short Calibration
@@ -437,9 +437,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         if data_list:
             file_path = data_list[0]
             next_step = data_list[1]
-            n_active = data_list[2]  # Number of active pixels
-            well_pixel_on = data_list[3]  # Stores array in well [0,1,2,..,10]
-            # Note: Index 0 is the active pixels outside the wells area
+            sc_phasors = data_list[2]  # Short circuit phasors
 
             # Next step
             if next_step or ui_send_question('Start open circuit calibration?'):
@@ -463,7 +461,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 self.enter_sc_step(file_path, False)
             else:
                 ui_send_warning('Running, please wait...')
-        except:
+        except Exception:
             pass
 
     # Open Calibration
@@ -486,9 +484,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         if data_list:
             file_path = data_list[0]
             next_step = data_list[1]
-            n_active = data_list[2]  # Number of active pixels
-            well_pixel_on = data_list[3]  # Stores array in well [0,1,2,..,10]
-            # Note: Index 0 is the active pixels outside the wells area
+            oc_phasors = data_list[2]  # Open circuit phasors
 
             # Next step
             if next_step or ui_send_question('Start measurement?'):
@@ -512,7 +508,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 self.enter_oc_step(file_path, False)
             else:
                 ui_send_warning('Running, please wait...')
-        except:
+        except Exception:
             pass
 
     # Measurement Step
@@ -552,7 +548,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 self.enter_meas_step(file_path, False)
             else:
                 ui_send_warning('Running, please wait...')
-        except:
+        except Exception:
             pass
 
     # RLC Fit Step
@@ -592,7 +588,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 self.enter_rlc_step(file_path, False)
             else:
                 ui_send_warning('Running, please wait...')
-        except:
+        except Exception:
             pass
 
     # Q Factor Step
@@ -624,7 +620,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 self.enter_qf_step(file_path, False)
             else:
                 ui_send_warning('Running, please wait...')
-        except:
+        except Exception:
             pass
 
     # --------------------------------------------------------------------------------------------------------------------------

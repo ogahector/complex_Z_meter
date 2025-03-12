@@ -154,7 +154,7 @@ class PlotCanvas(FigureCanvas):
     def drawnow(self):
         self.draw()
 
-    def plot_bode(self, frequency, magnitude, phase):
+    def plot_bode(self, frequency, magnitude, phase, option="sc_calib"):
         """
         Updates the Bode plot with new magnitude and phase data.
 
@@ -162,17 +162,30 @@ class PlotCanvas(FigureCanvas):
         - frequency: List or numpy array of frequency values (log scale).
         - magnitude: Corresponding magnitude values in dB.
         - phase: Corresponding phase values in degrees.
+        - option: String determining the plot style ('sc_calib', 'oc_calib', 'meas').
         """
+        # Define default styles for each option
+        plot_styles = {
+            'sc_calib': {'color': 'g', 'linestyle': '--', 'linewidth': 1},
+            'oc_calib': {'color': 'r', 'linestyle': ':', 'linewidth': 1},
+            'meas': {'color': 'b', 'linestyle': '-', 'linewidth': 2},
+        }
 
-        # Update magnitude plot
-        self.bode_mag_fig.remove()
-        self.bode_mag_fig, = self.bode_mag_ax.plot(frequency, magnitude, 'b-')
+        # Select style based on the 'option' parameter
+        style = plot_styles.get(option,
+                                {'color': 'k', 'linestyle': '-', 'linewidth': 1})  # Default to black, solid, width 1
+
+        # Update magnitude plot with selected style
+        # self.bode_mag_fig.remove()
+        self.bode_mag_fig, = self.bode_mag_ax.plot(frequency, magnitude, color=style['color'],
+                                                   linestyle=style['linestyle'], linewidth=style['linewidth'])
         self.bode_mag_ax.relim()  # Adjust limits based on data
         self.bode_mag_ax.autoscale_view()
 
-        # Update phase plot
-        self.bode_phase_fig.remove()
-        self.bode_phase_fig, = self.bode_phase_ax.plot(frequency, phase, 'r-')
+        # Update phase plot with selected style
+        # self.bode_phase_fig.remove()
+        self.bode_phase_fig, = self.bode_phase_ax.plot(frequency, phase, color=style['color'],
+                                                       linestyle=style['linestyle'], linewidth=style['linewidth'])
         self.bode_phase_ax.relim()
         self.bode_phase_ax.autoscale_view()
 

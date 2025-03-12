@@ -43,8 +43,8 @@ class Init(QThread):
             status_pos12 = self.serial_obj.execute_cmd('check_status_pos12')
             status_neg12 = self.serial_obj.execute_cmd('check_status_neg12')
             status_3v3 = self.serial_obj.execute_cmd('check_status_3v3')
-        except Exception as e:
-            print("Init: " + str(e))
+        except Exception as exc:
+            print("Init: " + str(exc))
             self.done_s.emit([])
         else:
             self.done_s.emit([self.file_path, self.next_step, status_pos12, status_neg12, status_3v3])
@@ -59,7 +59,7 @@ class Init(QThread):
 
 
 # ==============================================================================================================================
-# Short Calibration
+# Open Calibration
 # ==============================================================================================================================
 class ShortCalibration(QThread):
     done_s = pyqtSignal(list)
@@ -71,36 +71,51 @@ class ShortCalibration(QThread):
         super(ShortCalibration, self).__init__(parent)
         self.serial_obj = serial
         self.plot_obj = plot
+        self.received_phasors = []  # Store received phasors
 
     def run(self):
         self.serial_obj.serial_timeout = 10000000
-        # ----------------------------------------------------------------------------------------------------------------------
         try:
-            # Cmd
-            sc_phasors = self.serial_obj.execute_cmd("start_sc_calib")
-            if sc_phasors is None:
-                print("sc_phasors is None")
-            # Console
-            self.serial_obj.print('\nS: SC Calib Phasors %s, ' % sc_phasors)
-            # Save
-            binary_file_write(self.file_path + '\\%s_short_calibration.bin' % get_date_time(2), sc_phasors)
-        except Exception as e:
-            print("ShortCalibration: " + str(e))
+            # Start the calibration loop
+            while True:
+                sc_phasors = self.serial_obj.execute_cmd("start_sc_calib")
+                if sc_phasors is None:
+                    print("sc_phasors is None")
+                    break  # End loop if no more phasors
+
+                # Add received phasor to the list
+                self.received_phasors.append(sc_phasors[0])
+
+                # Console output and save to binary file
+                self.serial_obj.print(f'SC Calibration Phasors {sc_phasors}')
+                binary_file_write_phasors(self.file_path + '\\%s_short_calibration.bin' % get_date_time(2), self.received_phasors)
+
+                # Update the plot with the new phasor
+                freq, mag, phase = sc_phasors[0]  # Unpack the phasor
+                self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors], [m for _, m, _ in self.received_phasors], [p for _, _, p in self.received_phasors], option='sc_calib')
+
+                # Check for stop signal (e.g., stop button pressed)
+                if self.next_step:  # Check for stop condition
+                    self.serial_obj.execute_cmd("stop_sc_calib")
+                    break
+
+                time.sleep(1)
+
+        except Exception as exc:
+            print(f"ShortCalibration Error: {exc}")
             self.done_s.emit([])
         else:
-            self.done_s.emit([self.file_path, self.next_step, sc_phasors[-1], well_pixel_on])
-        # ----------------------------------------------------------------------------------------------------------------------
+            self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
+
         self.serial_obj.serial_timeout = 1000000
-        # Reset
         self.next_step = False
 
     def config(self, file_path, next_step=False):
         self.file_path = file_path
         self.next_step = next_step
 
-
 # ==============================================================================================================================
-# Short Calibration
+# Open Calibration
 # ==============================================================================================================================
 class OpenCalibration(QThread):
     done_s = pyqtSignal(list)
@@ -121,15 +136,28 @@ class OpenCalibration(QThread):
             oc_phasors = self.serial_obj.execute_cmd("start_oc_calib")
             if oc_phasors is None:
                 print("oc_phasors is None")
+
             # Console
             self.serial_obj.print('\nS: OC Calib Phasors %s, ' % oc_phasors)
-            # Save
-            binary_file_write(self.file_path + '\\%s_open_calibration.bin' % get_date_time(2), oc_phasors)
-        except Exception as e:
-            print("OpenCalibration: " + str(e))
+
+            # Save data to a binary file
+            binary_file_write_phasors(self.file_path + '\\%s_open_calibration.bin' % get_date_time(2), oc_phasors)
+
+            # Extract magnitude and phase from sc_phasors
+            # Assuming sc_phasors is a list of tuples [(magnitude1, phase1), (magnitude2, phase2), ...]
+            magnitudes = [phasor[0] for phasor in oc_phasors]
+            phases = [phasor[1] for phasor in oc_phasors]
+
+            # Update the Bode plot
+            # We use a dashed line style for each phasor's plot
+            self.plot_obj.plot_bode([10, 100, 1000, 10000], magnitudes,
+                                    phases, option='oc_calib')  # Use an empty frequency array if frequencies are not available
+
+        except Exception as exc:
+            print("OpenCalibration: " + str(exc))
             self.done_s.emit([])
         else:
-            self.done_s.emit([self.file_path, self.next_step, oc_phasors[-1], well_pixel_on])
+            self.done_s.emit([self.file_path, self.next_step, oc_phasors])
         # ----------------------------------------------------------------------------------------------------------------------
         self.serial_obj.serial_timeout = 1000000
         # Reset
@@ -150,25 +178,48 @@ class ReadoutMeasurement(QThread):
     file_path = None
     next_step = False
 
-    def __init__(self, serial, parent=None):
+    def __init__(self, serial, plot, parent=None):
         super(ReadoutMeasurement, self).__init__(parent)
         self.serial_obj = serial
-        self.run_readout = False
+        self.plot_obj = plot
 
     def run(self):
-        self.run_readout = True
-        while self.run_readout:
-            try:
-                data = self.serial_obj.execute_cmd("readout_time")
-                self.update_s.emit(data)
-                time.sleep(1)  # Delay between readouts
-            except Exception as e:
-                print(f"ReadoutMeasurement Error: {e}")
-                self.done_s.emit([])
-                break
+        try:
+            # Step 1: Get the phasors (magnitude, phase) for the measurement
+            dut_phasors = self.serial_obj.execute_cmd("readout_meas")
 
-    def stop(self):
-        self.run_readout = False
+            if dut_phasors is None:
+                print("dut_phasors is None")
+
+            # Step 2: Console print the received phasors (you can modify this if you need more details)
+            self.serial_obj.print('\nS: Readout Measurement Phasors %s, ' % dut_phasors)
+
+            # Step 3: Save the data to a binary file
+            binary_file_write_phasors(self.file_path + '\\%s_readout_measurement.bin' % get_date_time(2),
+                                      dut_phasors)
+
+            # Step 4: Extract magnitude and phase from the received phasors
+            magnitudes = [phasor[0] for phasor in dut_phasors]
+            phases = [phasor[1] for phasor in dut_phasors]
+
+            # Step 5: Update the Bode plot with the new data
+            # We use a frequency array and update the plot with dashed lines for measurement data
+            self.plot_obj.plot_bode([10, 100, 1000, 10000], magnitudes, phases, option='meas')
+
+            # Step 6: Emit the updated data to the UI (if needed)
+            self.update_s.emit(dut_phasors)
+
+            time.sleep(1)  # Delay between readouts
+
+        except Exception as exc:
+            print(f"ReadoutMeasurement Error: {exc}")
+            self.done_s.emit([])
+        else:
+            self.done_s.emit([self.file_path, self.next_step, dut_phasors])
+        # ----------------------------------------------------------------------------------------------------------------------
+        self.serial_obj.serial_timeout = 1000000
+        # Reset
+        self.next_step = False
 
     def config(self, file_path, next_step=False):
         self.file_path = file_path
@@ -200,11 +251,11 @@ class RLCFitting(QThread):
             self.serial_obj.print('\nS: RLC Fit Data %s, ' % rlc_data)
             # Save
             binary_file_write(self.file_path + '\\%s_rlc_fitting.bin' % get_date_time(2), rlc_data)
-        except Exception as e:
-            print("RLCFitting: " + str(e))
+        except Exception as exc:
+            print("RLCFitting: " + str(exc))
             self.done_s.emit([])
         else:
-            self.done_s.emit([self.file_path, self.next_step, rlc_data[-1], well_pixel_on])
+            self.done_s.emit([self.file_path, self.next_step, rlc_data[-1]])
         self.serial_obj.serial_timeout = 1000000
         self.next_step = False
 
@@ -238,11 +289,11 @@ class QFactor(QThread):
             self.serial_obj.print('\nS: Q Factor Data %s, ' % qf_data)
             # Save
             binary_file_write(self.file_path + '\\%s_q_factor.bin' % get_date_time(2), qf_data)
-        except Exception as e:
-            print("QFactor: " + str(e))
+        except Exception as exc:
+            print("QFactor: " + str(exc))
             self.done_s.emit([])
         else:
-            self.done_s.emit([self.file_path, self.next_step, qf_data[-1], well_pixel_on])
+            self.done_s.emit([self.file_path, self.next_step, qf_data[-1]])
         self.serial_obj.serial_timeout = 1000000
         self.next_step = False
 
@@ -268,8 +319,8 @@ class CheckPowerStatus(QThread):
             pos12 = self.serial_obj.execute_cmd("check_status_pos12")
             neg12 = self.serial_obj.execute_cmd("check_status_neg12")
             v3_3 = self.serial_obj.execute_cmd("check_status_3v3")
-        except Exception as e:
-            print(f"CheckPowerStatus Error:" + str(e))
+        except Exception as exc:
+            print(f"CheckPowerStatus Error:" + str(exc))
             self.done_s.emit([])
         else:
             self.done_s.emit([pos12, neg12, v3_3])
@@ -293,8 +344,8 @@ class DACControl(QThread):
                 self.serial_obj.execute_cmd("dac_set_val", self.value)
             dac_value = self.serial_obj.execute_cmd("dac_get_val")
             self.done_s.emit([dac_value])
-        except Exception as e:
-            print(f"DACControl Error: {e}")
+        except Exception as exc:
+            print(f"DACControl Error: {exc}")
             self.done_s.emit([None])
 
 
@@ -309,8 +360,8 @@ class ADCRead(QThread):
         try:
             adc_value = self.serial_obj.execute_cmd("adc_get_val")
             self.done_s.emit([adc_value])
-        except Exception as e:
-            print(f"ADCRead Error: {e}")
+        except Exception as exc:
+            print(f"ADCRead Error: {exc}")
             self.done_s.emit([None])
 
 
@@ -325,8 +376,8 @@ class CurrentRead(QThread):
         try:
             current_value = self.serial_obj.execute_cmd("curr_get_val")
             self.done_s.emit([current_value])
-        except Exception as e:
-            print(f"CurrentRead Error: {e}")
+        except Exception as exc:
+            print(f"CurrentRead Error: {exc}")
             self.done_s.emit([None])
 
 
@@ -347,8 +398,8 @@ class ReferenceResistor(QThread):
                 self.serial_obj.execute_cmd("rref_set_val", self.value)
             rref_value = self.serial_obj.execute_cmd("rref_get_val")
             self.done_s.emit([rref_value])
-        except Exception as e:
-            print(f"ReferenceResistor Error: {e}")
+        except Exception as exc:
+            print(f"ReferenceResistor Error: {exc}")
             self.done_s.emit([None])
 
 
@@ -373,8 +424,8 @@ class SerialGeneralCmd(QThread):
             r = self.serial_obj.execute_cmd(self.command)
             if self.response:
                 self.done_s.emit("R: %s\n" % (r if type(r) is not list else str(r)))
-        except Exception as e:
-            print("SerialGeneralCmd: " + str(e))
+        except Exception as exc:
+            print("SerialGeneralCmd: " + str(exc))
 
         self.serial_obj.serial_timeout = 1000000
 
@@ -398,8 +449,8 @@ class SerialOpenPort(QThread):
             device_id = self.serial_obj.execute_cmd("get_id")
             # Clock frequency
             div = self.serial_obj.execute_cmd("get_clk_divpw")
-        except Exception as e:
-            print("SerialOpenPort: " + str(e))
+        except Exception as exc:
+            print("SerialOpenPort: " + str(exc))
             self.done_s.emit([])
         else:
             self.done_s.emit([ver, device_id, div])

@@ -9,9 +9,10 @@ class FakeSerial:
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
-        self.in_waiting = 0  # Simulated buffer size
         self.is_open = True
-        self.buffer = b""  # Simulated response buffer
+        self.buffer = []  # Simulated response buffer
+        self.in_waiting = 0  # Simulated buffer size
+        self.response_iterator = None  # To iterate over the response list
 
     def write(self, data):
         """Simulate sending a command to the device."""
@@ -19,16 +20,21 @@ class FakeSerial:
         self.in_waiting = len(data)  # Fake data available for read
 
     def read(self, size=1):
-        """Simulate reading response from the device."""
-        time.sleep(0.1)  # Simulate processing delay
-        response = self.buffer[:size]  # Simulate returning data
-        self.buffer = self.buffer[size:]  # Remove read data
-        self.in_waiting -= len(response)
-        return response
+        """Simulate reading the next response from the device."""
+        if self.response_iterator is None:
+            return b""  # If no responses are set up, return nothing
+
+        # Get the next response from the iterator
+        try:
+            response = next(self.response_iterator)
+            self.in_waiting = len(response)
+            return response
+        except StopIteration:
+            return b""  # No more data to read
 
     def readline(self):
         """Simulate reading a line of response."""
-        return self.read(self.in_waiting)  # Return whatever is available
+        return self.read(self.in_waiting)
 
     def close(self):
         """Simulate closing the serial port."""
@@ -40,11 +46,15 @@ class FakeSerial:
 
     def flush(self):
         """Simulate flushing the serial buffer."""
-        self.buffer = b""
+        self.buffer = []
 
     def inWaiting(self):
         """Return number of bytes waiting in buffer (fake buffer)."""
         return self.in_waiting
+
+    def set_phasors(self, phasors):
+        """Set the list of phasors to send one at a time."""
+        self.response_iterator = iter(phasors)
 
 
 # - User-defined Command Table
@@ -63,7 +73,8 @@ command_table = \
         # ----------------------------------------------------------------
         # STM32 Peripheral
         # ----------------------------------------------------------------
-        "readout_time": 0x2200,
+        "start_readout_meas": 0x2200,
+        "stop_readout_meas": 0x2201,
         "get_phasors": 0x2202,
         "start_sc_calib": 0x2203,
         "start_oc_calib": 0x2204,
@@ -103,6 +114,7 @@ class TESTInstrumentCmd(object):
         self.console_s = None  # This should be connected to UI
         self.serial_obj = FakeSerial()  # Use the fake serial class
         self.serial_port = None
+        self.response_iterator = None  # Iterator for the phasor data
 
     def is_connected(self):
         return self.serial_connected
@@ -135,14 +147,54 @@ class TESTInstrumentCmd(object):
             "curr_get_val": round(random.uniform(0.1, 2.0), 3),  # Simulating current values
             "dac_get_val": 512,
             "rref_get_val": 1000,
-            "start_sc_calib": [{300, 20}, {100, 90}, {30, 45}],
-            "start_oc_calib": [{200, 10}, {10, 80}, {20, 25}],
+            "start_sc_calib": [
+                (10, 1.2, 80),  # Frequency: 10Hz, Magnitude: 1.2, Phase: 80 degrees
+                (20, 0.9, 75),  # Frequency: 20Hz, Magnitude: 0.9, Phase: 75 degrees
+                (30, 0.7, 60),  # Frequency: 30Hz, Magnitude: 0.7, Phase: 60 degrees
+                (40, 0.5, 45)   # Frequency: 40Hz, Magnitude: 0.5, Phase: 45 degrees
+            ],
+            "start_oc_calib": [
+                (50, 0.6, -50),  # Frequency: 50Hz, Magnitude: 0.6, Phase: -50 degrees
+                (60, 0.8, -60),  # Frequency: 60Hz, Magnitude: 0.8, Phase: -60 degrees
+                (70, 1.0, -70),  # Frequency: 70Hz, Magnitude: 1.0, Phase: -70 degrees
+                (80, 1.2, -80)   # Frequency: 80Hz, Magnitude: 1.2, Phase: -80 degrees
+            ],
+            "readout_meas": [
+                (100, 2.5, 0),    # Frequency: 100Hz, Magnitude: 2.5, Phase: 0 degrees
+                (200, 2.2, 5),    # Frequency: 200Hz, Magnitude: 2.2, Phase: 5 degrees
+                (300, 1.8, -5),   # Frequency: 300Hz, Magnitude: 1.8, Phase: -5 degrees
+                (400, 1.5, -10)   # Frequency: 400Hz, Magnitude: 1.5, Phase: -10 degrees
+            ]
         }
 
         # Handle writing commands to serial (simulating MCU response)
-        if command in command_table:
+        if command in test_responses:
             response = test_responses.get(command, f"TEST: Unknown command {command}")
-            self.serial_obj.write(str(response).encode())  # Simulate sending response
+
+            # Handle the case for 'readout_meas' command
+            if command == "readout_meas":
+                if self.response_iterator is None:
+                    self.response_iterator = iter(response)  # Initialize iterator for first call
+                phasor = next(self.response_iterator, None)  # Get next phasor
+                if phasor is not None:
+                    if self.console_s:
+                        self.console_s.emit(f"Readout: {phasor}\n")
+                    else:
+                        print(f"Readout: {phasor}")
+                return [phasor]  # Return single phasor
+
+            # Handle the case for 'start_sc_calib' and 'start_oc_calib' commands
+            elif command in ["start_sc_calib", "start_oc_calib"]:
+                if self.response_iterator is None:
+                    self.response_iterator = iter(response)  # Initialize iterator for first call
+                phasor = next(self.response_iterator, None)  # Get next phasor
+                if phasor is not None:
+                    if self.console_s:
+                        self.console_s.emit(f"{command}: {phasor}\n")
+                    else:
+                        print(f"{command}: {phasor}")
+                return [phasor]  # Return single phasor
+
             return response
         else:
             return "TEST: Invalid command"
