@@ -1,3 +1,14 @@
 {
-    "C_Cpp.default.compilerPath": "C:/msys64/mingw64/bin/g++.exe"
+    "C_Cpp.default.compilerPath": "C:/msys64/mingw64/bin/g++.exe",
+    "files.associations": {
+        "*.ino": "cpp",
+        "main.h": "c",
+        "stm32f4xx_hal.h": "c",
+        "stm32f4xx_hal_conf.h": "c"
+    },
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#5A0B3A",
+        "titleBar.activeBackground": "#7D0F51",
+        "titleBar.activeForeground": "#FFFCFD"
+    }
 }

@@ -34,20 +34,18 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-typedef enum __INSTRUMENT_STATE
-{
-	IDLE,
-	CALIBRATING,
-	MEASURING
-} INSTRUMENT_STATE;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define NORMAL_MODE
 #define DEBUG_MODES
+#define ONBOARD_FSM_MODE
+#define BOARD_DEBUG_MODE
 //#define UART_DEBUG_MODE
 //#define SWITCHING_RESISTOR_DEBUG_MODE
+
 
 /* USER CODE END PD */
 
@@ -72,13 +70,18 @@ TIM_HandleTypeDef htim6;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+// Communication with the UI
+volatile uint8_t cmd_available = 0;
+ui_command_t command = idle;
+volatile uint8_t rx_buffer[RX_BUFFER_SIZE];
+volatile size_t rx_index = 0;
 
+// Measuring and Signal Buffers
 uint16_t sine_wave_buffer[DAC_LUT_SIZE];
 uint16_t vmeas_buffer[ADC_BUFFER_SIZE];
 
-switching_resistor_t resistor;
-
-INSTRUMENT_STATE STATE = IDLE;
+// System Current Resistor
+switching_resistor_t current_resistor;
 
 // Calibration IMPEDANCE values
 phasor_t OC_CAL[NFREQUENCIES];
@@ -110,14 +113,10 @@ uint32_t GetTimXCurrentFrequency(TIM_HandleTypeDef* htim);
 HAL_StatusTypeDef TransmitPhasor(phasor_t phasor);
 HAL_StatusTypeDef TransmitPhasorRaw(phasor_t phasor);
 HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor);
-HAL_StatusTypeDef ReceiveMessage(char msg[], size_t len);
 
 HAL_StatusTypeDef TransmitPhasorDataframe(phasor_t phasors[], uint32_t frequencies_visited[], switching_resistor_t res);
 
-
-
-
-
+void Process_Command(ui_command_t command);
 
 /* USER CODE END PFP */
 
@@ -177,11 +176,9 @@ int main(void)
 
   // ADC DMA INIT in the previous function
 
-
-  // GET DAC STATE ON STARTUP
-  // Expected: BUSY
 #ifdef UART_DEBUG_MODE
-  char msg1[32];
+  // GET DAC STATE ON STARTUP
+  // Expected: BUSY  char msg1[32];
   sprintf(msg1, "Current DAC State: %d", HAL_DAC_GetState(&hdac));
   TransmitStringLn(msg1);
 
@@ -199,16 +196,8 @@ int main(void)
 
   Sampling_Enable();
 
-  uint32_t startTime;
-
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
-//  phasor_t ZX_RAW[NFREQUENCIES];
-  phasor_t inputs[NFREQUENCIES];
-  phasor_t outputs[NFREQUENCIES];
-
-
-  char msg_from_user[3];
 
   // assert 0 calibration phasors
   for(size_t i = 0; i < NFREQUENCIES; i++)
@@ -218,7 +207,11 @@ int main(void)
 	  known_zero[i] = (phasor_t) {0,0};
   }
 
-  resistor = RESISTOR1;
+  current_resistor = RESISTOR1;
+
+  HAL_UART_Receive_IT(&huart2, rx_buffer, RX_CMD_BYTE_NB);
+
+  Set_Signal_Frequency(100000);
 
   /* USER CODE END 2 */
 
@@ -227,65 +220,30 @@ int main(void)
   while (1)
   {
 	  i++;
-
-#ifdef NORMAL_MODE
-	  switch(STATE)
+#ifdef BOARD_DEBUG_MODE
+	  if(buttonPress())
 	  {
-	  case(IDLE):
-		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-		memset(msg_from_user, 0, 3);
-		ReceiveMessage(msg_from_user, 3);
-//	  TransmitStringLn(msg_from_user);
-		if(strcmp(msg_from_user, "C\n") == 0)
-		{
-			STATE = CALIBRATING;
-			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-//			TransmitStringLn("CALIBRATION INSTRUCTION RECEIVED!");
-		}
-		else if(strcmp(msg_from_user, "M\n") == 0)
-		{
-			STATE = MEASURING;
-			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-//			TransmitStringLn("MEASUREMENT INSTRUCTION RECEIVED!");
-		}
-
-		else STATE = IDLE;
-
-	    break;
-
-	  case(CALIBRATING):
-		// Wait until short is connected
-		HAL_Delay(100);
-		Measurement_Routine_Zx(SC_CAL, known_zero, known_zero, resistor, frequencies_visited);
-
-	  	// Wait until is OC
-		HAL_Delay(100);
-	  	Measurement_Routine_Zx(OC_CAL, known_zero, known_zero, resistor, frequencies_visited);
-		STATE = IDLE;
-		HAL_Delay(500);
-		break;
-
-	  case(MEASURING):
-		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-	    Sig_Gen_Enable();
-
-//	    Get_All_Raw_Phasors(inputs, outputs, 1000);
-//	    Measurement_Routine_Zx(Zx_measured, SC_CAL, OC_CAL, resistor, frequencies_visited);
-//	    TransmitPhasorDataframe(Zx_measured, frequencies_visited, resistor);
-
-	    Measurement_Routine_Voltage(outputs, SC_CAL, OC_CAL, resistor, frequencies_visited);
-	    TransmitPhasorDataframe(outputs, frequencies_visited, resistor);
-		HAL_Delay(1000);
-		STATE = IDLE;
-		break;
-
-
-	  default:
-		  STATE = IDLE;
-		  break;
+		  Sig_Gen_Enable();
 	  }
-
+//	  else
+//	  {
+//		  Sig_Gen_Disable();
+//	  }
 	  continue;
+
+#endif
+#ifdef NORMAL_MODE
+	  if(i % 100000) HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	  char msg[16];
+	  command = Receive_Command();
+	  sprintf(msg, "%u", command);
+
+	  TransmitStringRaw("This is the echo: $");
+	  TransmitStringRaw(msg);
+	  TransmitStringLn("#");
+
+	  HAL_Delay(1000);
+
 #endif /*NORMAL MODE*/
 
 #ifdef SWITCHING_RESISTOR_DEBUG_MODE
@@ -293,11 +251,7 @@ int main(void)
 	  {
 		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 		  Choose_Switching_Resistor(RESISTOR3);
-//		  Sig_Gen_Enable();
-//		  TransmitStringLn("Starting Measuring!");
-//		  TransmitUInt16Buffer(sine_wave_buffer, DAC_LUT_SIZE);
 
-//		  Get_All_Raw_Phasors(inputs, outputs, 1000);
 		  TransmitStringLn("DONE!");
 
 		  HAL_Delay(100);
@@ -866,12 +820,6 @@ HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor)
 	return TransmitString(msg);
 }
 
-HAL_StatusTypeDef ReceiveMessage(char msg[], size_t len)
-{
-	return HAL_UART_Receive(&huart2, msg, len, 1);
-}
-
-
 HAL_StatusTypeDef TransmitPhasorDataframe(phasor_t phasors[], uint32_t frequencies_visited[], switching_resistor_t res)
 {
 	for(size_t i = 0; i < NFREQUENCIES; i++)
@@ -887,6 +835,23 @@ HAL_StatusTypeDef TransmitPhasorDataframe(phasor_t phasors[], uint32_t frequenci
 	return TransmitStringLn("DONE!");
 }
 
+
+void Process_Command(ui_command_t command)
+{
+	switch(command)
+	{
+
+	case idle:
+	{
+		break;
+	}
+	default:
+	{
+		break;
+	}
+
+	}
+}
 
 
 /* USER CODE END 4 */

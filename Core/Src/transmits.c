@@ -9,6 +9,77 @@
 #include "transmits.h"
 
 
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
+{
+	if(huart->Instance == USART2)
+	{
+	    if (rx_buffer[rx_index] == '\n' || rx_buffer[rx_index] == '\r')
+	    {
+	      rx_buffer[rx_index] = '\0';  // Null-terminate the string
+	      cmd_available = 1;        // Set flag
+	      rx_index = 0;                // Reset buffer index
+	    }
+	    else
+	    {
+	    	rx_index++;
+	    	if (rx_index >= sizeof(rx_buffer))
+	    	{
+	    		rx_index = 0;
+	    	}
+	    }
+
+	    // Restart reception for next byte
+	    HAL_UART_Receive_IT(huart, (uint8_t*)&rx_buffer[rx_index], RX_CMD_BYTE_NB);
+	}
+}
+
+ui_command_t Receive_Command(void)
+{
+	char msg[RX_CMD_BYTE_NB];
+	ReceiveMessage(msg, RX_CMD_BYTE_NB);
+
+	return (ui_command_t) (msg[0] << 8) | (msg[1]); // nerver using par1 or par2
+}
+
+
+uint8_t Command_is_Available(void)
+{
+	if(cmd_available)
+	{
+		cmd_available = 0;
+		return 1;
+	}
+	return 0;
+}
+
+void Echo_Message(void)
+{
+	HAL_UART_Transmit(&huart2, (uint8_t*)"Received: $", 11, 100);
+	HAL_UART_Transmit(&huart2, (uint8_t*) &rx_buffer[rx_index], strlen((char*) &rx_buffer[rx_index]), 100);
+	HAL_UART_Transmit(&huart2, (uint8_t*)"#\r\n", 3, 100);
+}
+
+
+/*-------------------------------------------------------------------------*/
+
+
+
+HAL_StatusTypeDef TransmitMessageUI(char msg[])
+{
+
+}
+HAL_StatusTypeDef TransmitUInt32BufferUI(char msg[], uint32_t buffer[]);
+HAL_StatusTypeDef TransmitUint32UI(char msg[], uint32_t num);
+
+
+/*-------------------------------------------------------------------------*/
+
+HAL_StatusTypeDef ReceiveMessage(char msg[], size_t len)
+{
+	return HAL_UART_Receive(&huart2, msg, len, HAL_MAX_DELAY);
+}
+
 HAL_StatusTypeDef TransmitString(char msg[])
 {
 	if(HAL_UART_Transmit(&huart2, (const unsigned char*) msg, (uint16_t) strlen(msg), 5) != HAL_OK)

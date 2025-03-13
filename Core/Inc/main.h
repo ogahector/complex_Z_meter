@@ -36,6 +36,7 @@ extern "C" {
 #include "sig_gen.h"
 #include "dual_spi_adc.h"
 #include "transmits.h"
+#include <sampling.h>
 #include <stdint.h>
 #include "math.h"
 
@@ -108,6 +109,7 @@ void Error_Handler(void);
 #define FREQ_PPDECADE 30
 #define FREQ_NDECADE 3
 #define NFREQUENCIES ( FREQ_PPDECADE * FREQ_NDECADE )
+
 
 /* USER CODE END Private defines */
 

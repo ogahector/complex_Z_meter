@@ -9,6 +9,7 @@ import serial.tools.list_ports
 
 import time
 import struct
+import numpy as np
 
 # ----------------------------------------------------------------
 # User-defined Commands
@@ -338,6 +339,7 @@ class DebugCommand(object):
         try:
             if rdata_all[1]!= "[":
                 data = int(rdata_all[1:-1]) if rdata_all!='$#' else None
+                print(f'data: {data}')
             else:
                 # "[1,2,3]" -> [1,2,3]
                 data_dict = {'dataList': []}
@@ -345,6 +347,8 @@ class DebugCommand(object):
                 data = data_dict['dataList']
         except:
             self.error('Serial: Decoding Failed')
+            print(f'rdata_all: {rdata_all}')
+            print(f'data_all size: {np.size(rdata_all)}')
             raise SystemError
 
         # ----------------------------------------------------------------

@@ -8,6 +8,7 @@
 #ifndef SRC_DSP_H_
 #define SRC_DSP_H_
 
+#include <sampling.h>
 #include "main.h"
 #include "relay.h"
 
@@ -21,7 +22,6 @@ extern ADC_HandleTypeDef hadc1;
 extern DMA_HandleTypeDef hdma_adc1;
 extern TIM_HandleTypeDef htim2;
 extern uint16_t vmeas_buffer[ADC_BUFFER_SIZE];
-
 
 typedef struct __phasor_t {
     double magnitude;
@@ -42,23 +42,6 @@ void ADC_SampleSingleShot(void);
  */
 void ADC_Separate_Channels(uint16_t buffADC[], uint16_t buffA[], uint16_t buffB[], uint16_t buffC[]);
 
-/**
- * @brief Enables sampling by starting TIM2.
- */
-void Sampling_Enable(void);
-
-/**
- * @brief Disables sampling by stopping TIM2.
- */
-void Sampling_Disable(void);
-
-/**
- * @brief Gets the effective ADC sampling frequency based on TIM2's settings.
- * @return The sampling frequency in Hz.
- */
-uint32_t Get_Sampling_Frequency(void);
-
-uint32_t Set_Sampling_Frequency(uint32_t f_sine);
 /**
  * @brief Calculates the phasor of a single signal using the IQ method.
  * @param sig: Input signal buffer (ADC samples).

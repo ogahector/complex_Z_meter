@@ -18,5 +18,6 @@ typedef enum __switching_resistor_t { // this will be in mOhm!!
 } switching_resistor_t;
 
 void Choose_Switching_Resistor(switching_resistor_t res);
+inline double SwRes2Ohms(switching_resistor_t res);
 
 #endif /* SRC_RELAY_H_ */
