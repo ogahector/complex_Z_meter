@@ -147,63 +147,14 @@ class PlotCanvas(FigureCanvas):
         self.q_factor_ax.set_ylim(0, 100)  # Placeholder range
         [self.q_factor_fig] = self.q_factor_ax.plot([], [], 'c-')  # Empty initial plot
 
+        self.plots_phase = {}
+        self.plots_mag = {}
+
         # Render the initial empty plots
         self.figure.subplots_adjust(right=0.95, top=0.95, bottom=0.05, hspace=0.3)
         self.draw()
         
     def drawnow(self):
-        self.draw()
-
-    def plot_bode_legacy(self, frequency, magnitude, phase, option="sc_calib"):
-        """
-        Updates the Bode plot with new magnitude and phase data.
-
-        Parameters:
-        - frequency: List or numpy array of frequency values (log scale).
-        - magnitude: Corresponding magnitude values in dB.
-        - phase: Corresponding phase values in degrees.
-        - option: String determining the plot style ('sc_calib', 'oc_calib', 'meas').
-        """
-        # Define default styles for each option
-        plot_styles = {
-            'sc_calib': {'color': 'g', 'linestyle': '--', 'linewidth': 1},
-            'oc_calib': {'color': 'r', 'linestyle': ':', 'linewidth': 1},
-            'meas': {'color': 'b', 'linestyle': '-', 'linewidth': 2},
-        }
-
-        # Select style based on the 'option' parameter
-        style = plot_styles.get(option,
-                                {'color': 'k', 'linestyle': '-', 'linewidth': 1})  # Default to black, solid, width 1
-
-        # Remove the existing plot for magnitude if it matches the current style
-        if hasattr(self, 'bode_mag_fig') and self.bode_mag_fig.get_color() == style['color'] and \
-                self.bode_mag_fig.get_linestyle() == style['linestyle'] and \
-                self.bode_mag_fig.get_linewidth() == style['linewidth']:
-            self.bode_mag_fig.remove()
-
-        # Add the new magnitude plot
-        self.bode_mag_fig, = self.bode_mag_ax.plot(frequency, magnitude, color=style['color'],
-                                                   linestyle=style['linestyle'], linewidth=style['linewidth'])
-
-        # Update phase plot if it matches the current style
-        if hasattr(self, 'bode_phase_fig') and self.bode_phase_fig.get_color() == style['color'] and \
-                self.bode_phase_fig.get_linestyle() == style['linestyle'] and \
-                self.bode_phase_fig.get_linewidth() == style['linewidth']:
-            self.bode_phase_fig.remove()
-
-        # Add the new phase plot
-        self.bode_phase_fig, = self.bode_phase_ax.plot(frequency, phase, color=style['color'],
-                                                       linestyle=style['linestyle'], linewidth=style['linewidth'])
-
-        # Update axes limits based on data
-        self.bode_mag_ax.relim()
-        self.bode_mag_ax.autoscale_view()
-
-        self.bode_phase_ax.relim()
-        self.bode_phase_ax.autoscale_view()
-
-        # Redraw the figure
-        self.figure.subplots_adjust(right=0.95, top=0.95, bottom=0.05, hspace=0.3)
         self.draw()
 
     def plot_bode(self, frequency, magnitude, phase, option="sc_calib"):

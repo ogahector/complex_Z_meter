@@ -80,15 +80,15 @@ class ShortCalibration(QThread):
 
                 # Check if no phasor is returned
                 if sc_phasors[0] is None:
-                    print("No more phasors received. Ending short circuit calibration.")
+                    print("No more phasors received. Saving data to file. Ending short circuit calibration.")
+                    # Save to binary file
+                    write_phasors_to_text_file(self.file_path + '\\%s_short_calibration.txt' % get_date_time(2),
+                                              self.received_phasors)
                     self.stop()
                     break  # Exit loop if no more phasors are received
 
                 # Add the received phasor to the list
                 self.received_phasors.append(sc_phasors[0])
-
-                # Save to binary file
-                binary_file_write_phasors(self.file_path + '\\%s_short_calibration.bin' % get_date_time(2), self.received_phasors)
 
                 # Update the plot with the new phasor
                 self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors], [m for _, m, _ in self.received_phasors], [p for _, _, p in self.received_phasors], option='sc_calib')
@@ -111,7 +111,7 @@ class ShortCalibration(QThread):
 
     def stop(self):
         self.serial_obj.execute_cmd("stop_sc_calib")
-        self.run = False  # Set run to False to exit the loop
+        self.run = False  # Set run False to exit the loop
 
 # ==============================================================================================================================
 # Open Calibration
@@ -138,15 +138,15 @@ class OpenCalibration(QThread):
 
                 # Check if no phasor is returned
                 if oc_phasors[0] is None:
-                    print("No more phasors received. Ending open circuit calibration.")
+                    print("No more phasors received. Saving data to file. Ending open circuit calibration.")
+                    # Save to binary file
+                    write_phasors_to_text_file(self.file_path + '\\%s_open_calibration.txt' % get_date_time(2), self.received_phasors)
+
                     self.stop()
                     break  # Exit loop if no more phasors are received
 
                 # Add the received phasor to the list
                 self.received_phasors.append(oc_phasors[0])
-
-                # Save to binary file
-                binary_file_write_phasors(self.file_path + '\\%s_open_calibration.bin' % get_date_time(2), self.received_phasors)
 
                 # Update the plot with the new phasor
                 self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors], [m for _, m, _ in self.received_phasors], [p for _, _, p in self.received_phasors], option='oc_calib')
@@ -169,7 +169,7 @@ class OpenCalibration(QThread):
 
     def stop(self):
         self.serial_obj.execute_cmd("stop_oc_calib")
-        self.run = False  # Set run to False to exit the loop
+        self.run = False  # Set run False to exit the loop
 
 # ==============================================================================================================================
 # Real-time Measurement Readout
@@ -196,17 +196,17 @@ class ReadoutMeasurement(QThread):
 
                 # Check if no phasor is returned
                 if dut_phasors[0] is None:
-                    print("No more phasors received. Ending readout measurement.")
+                    print("No more phasors received. Saving data to file. Ending readout measurement.")
+                    # Save to binary file
+                    write_phasors_to_text_file(self.file_path + '\\%s_readout_measurement.txt' % get_date_time(2),
+                                              self.received_phasors)
+
                     self.done_s.emit([self.file_path, self.received_phasors])
                     self.stop()
                     break  # Exit loop if no more phasors are received
 
                 # Add the received phasor to the list
                 self.received_phasors.append(dut_phasors[0])
-
-                # Save to binary file
-                binary_file_write_phasors(self.file_path + '\\%s_readout_measurement.bin' % get_date_time(2),
-                                          self.received_phasors)
 
                 # Update the plot with the new phasor
                 self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors],
@@ -234,7 +234,7 @@ class ReadoutMeasurement(QThread):
 
     def stop(self):
         self.serial_obj.execute_cmd("stop_readout_meas")
-        self.run = False  # Set run to False to exit the loop
+        self.run = False  # Set run False to exit the loop
 
 # ==============================================================================================================================
 # RLC Fitting
@@ -260,7 +260,7 @@ class RLCFitting(QThread):
             # Console
             self.serial_obj.print('\nS: RLC Fit Data %s, ' % rlc_data)
             # Save
-            binary_file_write(self.file_path + '\\%s_rlc_fitting.bin' % get_date_time(2), rlc_data)
+            binary_file_write(self.file_path + '\\%s_rlc_fitting.txt' % get_date_time(2), rlc_data)
         except Exception as exc:
             print("RLCFitting: " + str(exc))
             self.done_s.emit([])
@@ -298,7 +298,7 @@ class QFactor(QThread):
             # Console
             self.serial_obj.print('\nS: Q Factor Data %s, ' % qf_data)
             # Save
-            binary_file_write(self.file_path + '\\%s_q_factor.bin' % get_date_time(2), qf_data)
+            binary_file_write(self.file_path + '\\%s_q_factor.txt' % get_date_time(2), qf_data)
         except Exception as exc:
             print("QFactor: " + str(exc))
             self.done_s.emit([])
