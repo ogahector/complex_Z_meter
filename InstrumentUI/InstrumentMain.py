@@ -361,13 +361,13 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     ############################################################################################################################
     # Init
     # --------------------------------------------------------------------------------------------------------------------------
-    def enter_init_step(self, file_path=None, next_step=False):
+    def enter_init_step(self, file_path=None):
         # UI
         self.init_pushButton.setText('Running')
         ui_set_color_red(self.init_pushButton)
 
         # Thread
-        self.init_t.config(file_path, next_step)
+        self.init_t.config(file_path)
         self.init_t.start()
 
     def leave_init_step(self):
@@ -379,15 +379,14 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         # Check if thread error
         if data_list:
             file_path = data_list[0]
-            next_step = data_list[1]
-            status = data_list[2]
+            status = data_list[1]
             # Update UI
             self.ui_status_update([status, status, status])
             # Next step
             if status:
-                if next_step or ui_send_question('Start short circuit calibration?'):
+                if ui_send_question('Start short circuit calibration?'):
                     self.leave_init_step()
-                    self.enter_sc_step(file_path, next_step)
+                    self.enter_sc_step(file_path)
                 else:
                     self.leave_init_step()
                     ui_send_info('PCB has correct voltage supplies :)')
@@ -411,7 +410,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 # Create experiment folder
                 file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
                 # Start
-                self.enter_init_step(file_path=file_path, next_step=False)
+                self.enter_init_step(file_path=file_path)
             else:
                 ui_send_warning('Running, please wait...')
         except Exception:
@@ -419,38 +418,34 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
 
     # Short Calibration
     # --------------------------------------------------------------------------------------------------------------------------
-    def enter_sc_step(self, file_path, next_step):
+    def enter_sc_step(self, file_path):
         # UI
         self.sc_pushButton.setText('Running')
         ui_set_color_red(self.sc_pushButton)
         # Thread
-        self.sc_t.config(file_path, next_step)
+        self.sc_t.config(file_path)
         self.sc_t.start()
 
-    def leave_sc_step(self, next_step):
+    def leave_sc_step(self):
         # UI
         self.sc_pushButton.setText('SC')
         ui_set_color_green(self.sc_pushButton)
-        # Thread
-        if next_step:
-            self.sc_t.next_step = next_step
 
     def sc_step_done(self, data_list):
         # Check if thread error
         if data_list:
             file_path = data_list[0]
-            next_step = data_list[1]
-            sc_phasors = data_list[2]  # Short circuit phasors
+            sc_phasors = data_list[1]  # Short circuit phasors
 
             # Next step
             if ui_send_question('Start open circuit calibration?'):
-                self.leave_sc_step(next_step)
-                self.enter_oc_step(file_path, next_step)
+                self.leave_sc_step()
+                self.enter_oc_step(file_path)
             else:
-                self.leave_sc_step(True)
+                self.leave_sc_step()
                 ui_send_info('Short circuit calibration done :)')
         else:
-            self.leave_sc_step(False)
+            self.leave_sc_step()
 
     @pyqtSlot()
     def on_sc_pushButton_clicked(self):
@@ -461,7 +456,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 # Create experiment folder
                 file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
                 # Start
-                self.enter_sc_step(file_path, self.sc_t.next_step)
+                self.enter_sc_step(file_path)
             else:
                 self.sc_t.stop()
                 # ui_send_warning('Running, please wait...')
@@ -470,12 +465,12 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
 
     # Open Calibration
     # --------------------------------------------------------------------------------------------------------------------------
-    def enter_oc_step(self, file_path, next_step):
+    def enter_oc_step(self, file_path):
         # UI
         self.oc_pushButton.setText('Running')
         ui_set_color_red(self.oc_pushButton)
         # Thread
-        self.oc_t.config(file_path, next_step)
+        self.oc_t.config(file_path)
         self.oc_t.start()
 
     def leave_oc_step(self):
@@ -487,13 +482,12 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         # Check if thread error
         if data_list:
             file_path = data_list[0]
-            next_step = data_list[1]
-            oc_phasors = data_list[2]  # Open circuit phasors
+            oc_phasors = data_list[1]  # Open circuit phasors
 
             # Next step
             if ui_send_question('Start measurement?'):
                 self.leave_oc_step()
-                self.enter_meas_step(file_path, next_step)
+                self.enter_meas_step(file_path)
             else:
                 self.leave_oc_step()
                 ui_send_info('Open circuit calibration done :)')
@@ -509,7 +503,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 # Create experiment folder
                 file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
                 # Start
-                self.enter_oc_step(file_path, False)
+                self.enter_oc_step(file_path)
             else:
                 ui_send_warning('Running, please wait...')
         except Exception:
@@ -518,12 +512,12 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     # Measurement Step
     # --------------------------------------------------------------------------------------------------------------------------
 
-    def enter_meas_step(self, file_path, next_step):
+    def enter_meas_step(self, file_path):
         # UI
         self.measure_pushButton.setText('Running')
         ui_set_color_red(self.measure_pushButton)
         # Thread
-        self.meas_t.config(file_path, next_step)
+        self.meas_t.config(file_path)
         self.meas_t.start()
 
     def leave_meas_step(self):
@@ -533,10 +527,12 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     def meas_step_done(self, data_list):
         self.leave_meas_step()
         if data_list:
-            file_path, next_step = data_list[:2]
+            file_path = data_list[0]
+            meas_phasors = data_list[1]  # Measurement phasors
+
             if ui_send_question('Start RLC Fitting?'):
                 self.leave_meas_step()
-                self.enter_rlc_step(file_path, next_step)
+                self.enter_rlc_step(file_path)
             else:
                 self.leave_oc_step()
                 ui_send_info('Measurement stage done :)')
@@ -549,7 +545,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             if self.measure_pushButton.text() == 'Measure':
                 self.run_if_ready_else_exit()
                 file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
-                self.enter_meas_step(file_path, False)
+                self.enter_meas_step(file_path)
             else:
                 ui_send_warning('Running, please wait...')
         except Exception:
@@ -558,12 +554,12 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     # RLC Fit Step
     # --------------------------------------------------------------------------------------------------------------------------
 
-    def enter_rlc_step(self, file_path, next_step):
+    def enter_rlc_step(self, file_path):
         # UI
         self.rlc_pushButton.setText('Running')
         ui_set_color_red(self.rlc_pushButton)
         # Thread
-        self.rlc_t.config(file_path, next_step)
+        self.rlc_t.config(file_path)
         self.rlc_t.start()
 
     def leave_rlc_step(self):
@@ -573,10 +569,11 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     def rlc_step_done(self, data_list):
         self.leave_rlc_step()
         if data_list:
-            file_path, next_step = data_list[:2]
-            if next_step or ui_send_question('Start Q Factor calculation?'):
+            file_path = data_list[0]
+
+            if ui_send_question('Start Q Factor calculation?'):
                 self.leave_rlc_step()
-                self.enter_qf_step(file_path, next_step)
+                self.enter_qf_step(file_path)
             else:
                 self.leave_oc_step()
                 ui_send_info('Measurement stage done :)')
@@ -589,7 +586,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             if self.rlc_pushButton.text() == 'RLC Fit':
                 self.run_if_ready_else_exit()
                 file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
-                self.enter_rlc_step(file_path, False)
+                self.enter_rlc_step(file_path)
             else:
                 ui_send_warning('Running, please wait...')
         except Exception:
@@ -598,12 +595,12 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     # Q Factor Step
     # --------------------------------------------------------------------------------------------------------------------------
 
-    def enter_qf_step(self, file_path, next_step):
+    def enter_qf_step(self, file_path):
         # UI
         self.qfactor_pushButton.setText('Running')
         ui_set_color_red(self.qfactor_pushButton)
         # Thread
-        self.qf_t.config(file_path, next_step)
+        self.qf_t.config(file_path)
         self.qf_t.start()
 
     def leave_qf_step(self):
@@ -621,7 +618,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             if self.qfactor_pushButton.text() == 'Q Factor':
                 self.run_if_ready_else_exit()
                 file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
-                self.enter_qf_step(file_path, False)
+                self.enter_qf_step(file_path)
             else:
                 ui_send_warning('Running, please wait...')
         except Exception:

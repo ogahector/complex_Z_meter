@@ -24,13 +24,14 @@ import matplotlib.pyplot as plt
 # ==============================================================================================================================
 # Main Process
 # ==============================================================================================================================
+
 # ==============================================================================================================================
 # Initialisation
+# ==============================================================================================================================
 class Init(QThread):
     done_s = pyqtSignal(list)
 
     file_path = None
-    next_step = False
 
     def __init__(self, serial, parent=None):
         super(Init, self).__init__(parent)
@@ -40,7 +41,7 @@ class Init(QThread):
         self.serial_obj.serial_timeout = 100000000
         # ----------------------------------------------------------------------------------------------------------------------
         try:
-            # This cmd includes resent & init
+            # This cmd includes reset & init
             status_pos12 = self.serial_obj.execute_cmd('check_status_pos12')
             status_neg12 = self.serial_obj.execute_cmd('check_status_neg12')
             status_3v3 = self.serial_obj.execute_cmd('check_status_3v3')
@@ -48,16 +49,12 @@ class Init(QThread):
             print("Init: " + str(exc))
             self.done_s.emit([])
         else:
-            self.done_s.emit([self.file_path, self.next_step, status_pos12, status_neg12, status_3v3])
+            self.done_s.emit([self.file_path, status_pos12, status_neg12, status_3v3])
         # ----------------------------------------------------------------------------------------------------------------------
         self.serial_obj.serial_timeout = 100000000
-        # Reset
-        self.next_step = False
 
-    def config(self, file_path, next_step):
+    def config(self, file_path):
         self.file_path = file_path
-        self.next_step = next_step
-
 
 # ==============================================================================================================================
 # Short Calibration
@@ -66,12 +63,13 @@ class ShortCalibration(QThread):
     done_s = pyqtSignal(list)
 
     file_path = None
-    next_step = False
 
     def __init__(self, serial, plot, parent=None):
         super(ShortCalibration, self).__init__(parent)
         self.serial_obj = serial
         self.plot_obj = plot
+        self.received_phasors = []  # Store received phasors
+        self.run = True
 
     def run(self):
         self.serial_obj.serial_timeout = 10000000
@@ -79,8 +77,6 @@ class ShortCalibration(QThread):
             # Start the calibration loop
             while self.run:
                 sc_phasors = self.serial_obj.execute_cmd("start_sc_calib")
-                # pydevd.settrace(suspend=True, trace_only_current_thread=False)
-                # Check for stop signal (e.g., stop button pressed)
 
                 # Check if no phasor is returned
                 if sc_phasors[0] is None:
@@ -91,32 +87,25 @@ class ShortCalibration(QThread):
                 # Add the received phasor to the list
                 self.received_phasors.append(sc_phasors[0])
 
-                # Console output and save to binary file
-                #self.serial_obj.print(f'\nSC Calibration Phasors {sc_phasors}')
+                # Save to binary file
                 binary_file_write_phasors(self.file_path + '\\%s_short_calibration.bin' % get_date_time(2), self.received_phasors)
 
                 # Update the plot with the new phasor
                 self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors], [m for _, m, _ in self.received_phasors], [p for _, _, p in self.received_phasors], option='sc_calib')
 
-                # if self.next_step:  # Check for stop condition
-                #     self.stop()
-                #     self.done_s.emit([self.file_path, self.next_step, self.received_phasors])  # Emit the result
-                #     break  # Exit loop when stop command is issued
-
                 time.sleep(1)
 
         except Exception as exc:
-           print(f"ShortCalibration Error: {exc}")
-           self.done_s.emit([])  # Emit empty result on error
+            print(f"ShortCalibration Error: {exc}")
+            self.done_s.emit([])  # Emit empty result on error
         else:
-           self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
+            self.done_s.emit([self.file_path, self.received_phasors])
 
         # Reset after process ends
         self.serial_obj.serial_timeout = 1000000
 
-    def config(self, file_path, next_step=False):
+    def config(self, file_path):
         self.file_path = file_path
-        self.next_step = next_step
         self.received_phasors = []  # Store received phasors
         self.run = True
 
@@ -124,15 +113,13 @@ class ShortCalibration(QThread):
         self.serial_obj.execute_cmd("stop_sc_calib")
         self.run = False  # Set run to False to exit the loop
 
-
 # ==============================================================================================================================
-# Open Calibration (Adapted)
+# Open Calibration
 # ==============================================================================================================================
 class OpenCalibration(QThread):
     done_s = pyqtSignal(list)
 
     file_path = None
-    next_step = False
 
     def __init__(self, serial, plot, parent=None):
         super(OpenCalibration, self).__init__(parent)
@@ -148,7 +135,6 @@ class OpenCalibration(QThread):
             while self.run:
                 # Get the phasors (frequency, magnitude, phase)
                 oc_phasors = self.serial_obj.execute_cmd("start_oc_calib")
-                # pydevd.settrace(suspend=True, trace_only_current_thread=False)
 
                 # Check if no phasor is returned
                 if oc_phasors[0] is None:
@@ -159,8 +145,7 @@ class OpenCalibration(QThread):
                 # Add the received phasor to the list
                 self.received_phasors.append(oc_phasors[0])
 
-                # Console output and save to binary file
-                # self.serial_obj.print(f'\nOC Calibration Phasors {oc_phasors}')
+                # Save to binary file
                 binary_file_write_phasors(self.file_path + '\\%s_open_calibration.bin' % get_date_time(2), self.received_phasors)
 
                 # Update the plot with the new phasor
@@ -172,14 +157,13 @@ class OpenCalibration(QThread):
             print(f"OpenCalibration Error: {exc}")
             self.done_s.emit([])  # Emit empty result on error
         else:
-            self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
+            self.done_s.emit([self.file_path, self.received_phasors])
 
         # Reset after process ends
         self.serial_obj.serial_timeout = 1000000
 
-    def config(self, file_path, next_step=False):
+    def config(self, file_path):
         self.file_path = file_path
-        self.next_step = next_step
         self.received_phasors = []  # Store received phasors
         self.run = True
 
@@ -187,16 +171,14 @@ class OpenCalibration(QThread):
         self.serial_obj.execute_cmd("stop_oc_calib")
         self.run = False  # Set run to False to exit the loop
 
-
 # ==============================================================================================================================
-# Real-time Measurement Readout (Adapted)
+# Real-time Measurement Readout
 # ==============================================================================================================================
 class ReadoutMeasurement(QThread):
     update_s = pyqtSignal(list)
     done_s = pyqtSignal(list)
 
     file_path = None
-    next_step = False
 
     def __init__(self, serial, plot, parent=None):
         super(ReadoutMeasurement, self).__init__(parent)
@@ -211,20 +193,18 @@ class ReadoutMeasurement(QThread):
             while self.run:
                 # Get the phasors (frequency, magnitude, phase) for the measurement
                 dut_phasors = self.serial_obj.execute_cmd("readout_meas")
-                # pydevd.settrace(suspend=True, trace_only_current_thread=False)
 
                 # Check if no phasor is returned
                 if dut_phasors[0] is None:
                     print("No more phasors received. Ending readout measurement.")
-                    self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
+                    self.done_s.emit([self.file_path, self.received_phasors])
                     self.stop()
                     break  # Exit loop if no more phasors are received
 
                 # Add the received phasor to the list
                 self.received_phasors.append(dut_phasors[0])
 
-                # Console output and save to binary file
-                # self.serial_obj.print(f'\nS: Readout Measurement Phasors {dut_phasors}')
+                # Save to binary file
                 binary_file_write_phasors(self.file_path + '\\%s_readout_measurement.bin' % get_date_time(2),
                                           self.received_phasors)
 
@@ -242,14 +222,13 @@ class ReadoutMeasurement(QThread):
             print(f"ReadoutMeasurement Error: {exc}")
             self.done_s.emit([])  # Emit empty result on error
         else:
-            self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
+            self.done_s.emit([self.file_path, self.received_phasors])
 
         # Reset after process ends
         self.serial_obj.serial_timeout = 1000000
 
-    def config(self, file_path, next_step=False):
+    def config(self, file_path):
         self.file_path = file_path
-        self.next_step = next_step
         self.received_phasors = []  # Store received phasors
         self.run = True
 
