@@ -176,14 +176,14 @@ class PlotCanvas(FigureCanvas):
                                 {'color': 'k', 'linestyle': '-', 'linewidth': 1})  # Default to black, solid, width 1
 
         # Update magnitude plot with selected style
-        # self.bode_mag_fig.remove()
+        self.bode_mag_fig.remove()
         self.bode_mag_fig, = self.bode_mag_ax.plot(frequency, magnitude, color=style['color'],
                                                    linestyle=style['linestyle'], linewidth=style['linewidth'])
         self.bode_mag_ax.relim()  # Adjust limits based on data
         self.bode_mag_ax.autoscale_view()
 
         # Update phase plot with selected style
-        # self.bode_phase_fig.remove()
+        self.bode_phase_fig.remove()
         self.bode_phase_fig, = self.bode_phase_ax.plot(frequency, phase, color=style['color'],
                                                        linestyle=style['linestyle'], linewidth=style['linewidth'])
         self.bode_phase_ax.relim()

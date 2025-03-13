@@ -52,10 +52,6 @@ class FakeSerial:
         """Return number of bytes waiting in buffer (fake buffer)."""
         return self.in_waiting
 
-    def set_phasors(self, phasors):
-        """Set the list of phasors to send one at a time."""
-        self.response_iterator = iter(phasors)
-
 
 # - User-defined Command Table
 command_table = \
@@ -149,21 +145,21 @@ class TESTInstrumentCmd(object):
             "rref_get_val": 1000,
             "start_sc_calib": [
                 (10, 1.2, 80),  # Frequency: 10Hz, Magnitude: 1.2, Phase: 80 degrees
-                (20, 0.9, 75),  # Frequency: 20Hz, Magnitude: 0.9, Phase: 75 degrees
-                (30, 0.7, 60),  # Frequency: 30Hz, Magnitude: 0.7, Phase: 60 degrees
-                (40, 0.5, 45)   # Frequency: 40Hz, Magnitude: 0.5, Phase: 45 degrees
+                (100, 0.9, 75),  # Frequency: 20Hz, Magnitude: 0.9, Phase: 75 degrees
+                (1000, 0.7, 60),  # Frequency: 30Hz, Magnitude: 0.7, Phase: 60 degrees
+                (10000, 0.5, 45)   # Frequency: 40Hz, Magnitude: 0.5, Phase: 45 degrees
             ],
             "start_oc_calib": [
-                (50, 0.6, -50),  # Frequency: 50Hz, Magnitude: 0.6, Phase: -50 degrees
-                (60, 0.8, -60),  # Frequency: 60Hz, Magnitude: 0.8, Phase: -60 degrees
-                (70, 1.0, -70),  # Frequency: 70Hz, Magnitude: 1.0, Phase: -70 degrees
-                (80, 1.2, -80)   # Frequency: 80Hz, Magnitude: 1.2, Phase: -80 degrees
+                (10, 0.6, -50),  # Frequency: 50Hz, Magnitude: 0.6, Phase: -50 degrees
+                (100, 0.8, -60),  # Frequency: 60Hz, Magnitude: 0.8, Phase: -60 degrees
+                (1000, 1.0, -70),  # Frequency: 70Hz, Magnitude: 1.0, Phase: -70 degrees
+                (10000, 1.2, -80)   # Frequency: 80Hz, Magnitude: 1.2, Phase: -80 degrees
             ],
             "readout_meas": [
-                (100, 2.5, 0),    # Frequency: 100Hz, Magnitude: 2.5, Phase: 0 degrees
-                (200, 2.2, 5),    # Frequency: 200Hz, Magnitude: 2.2, Phase: 5 degrees
-                (300, 1.8, -5),   # Frequency: 300Hz, Magnitude: 1.8, Phase: -5 degrees
-                (400, 1.5, -10)   # Frequency: 400Hz, Magnitude: 1.5, Phase: -10 degrees
+                (10, 2.5, 0),    # Frequency: 100Hz, Magnitude: 2.5, Phase: 0 degrees
+                (100, 2.2, 5),    # Frequency: 200Hz, Magnitude: 2.2, Phase: 5 degrees
+                (1000, 1.8, -5),   # Frequency: 300Hz, Magnitude: 1.8, Phase: -5 degrees
+                (10000, 1.5, -10)   # Frequency: 400Hz, Magnitude: 1.5, Phase: -10 degrees
             ]
         }
 
@@ -178,9 +174,9 @@ class TESTInstrumentCmd(object):
                 phasor = next(self.response_iterator, None)  # Get next phasor
                 if phasor is not None:
                     if self.console_s:
-                        self.console_s.emit(f"Readout: {phasor}\n")
+                        self.console_s.emit(f"S: Readout: {phasor}\n")
                     else:
-                        print(f"Readout: {phasor}")
+                        print(f"S: Readout: {phasor}\n")
                 return [phasor]  # Return single phasor
 
             # Handle the case for 'start_sc_calib' and 'start_oc_calib' commands
@@ -190,10 +186,16 @@ class TESTInstrumentCmd(object):
                 phasor = next(self.response_iterator, None)  # Get next phasor
                 if phasor is not None:
                     if self.console_s:
-                        self.console_s.emit(f"{command}: {phasor}\n")
+                        self.console_s.emit(f"S: {command} {phasor}\n")
                     else:
-                        print(f"{command}: {phasor}")
+                        print(f"S: {command} {phasor}\n")
                 return [phasor]  # Return single phasor
+
+            # Handle the case for 'stop_sc_calib' command (reset the iterator)
+            elif command == "stop_sc_calib":
+                print("Stopping SC Calibration, resetting iterator.")
+                self.response_iterator = None  # Reset the iterator when stop command is received
+                return "SC Calibration Stopped"
 
             return response
         else:

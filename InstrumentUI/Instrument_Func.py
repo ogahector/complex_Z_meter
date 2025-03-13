@@ -34,24 +34,22 @@ def binary_file_write(file, data_list):
         fw.write(struct.pack('>H', data))  # 1023 -> b'\x03\xff'
     fw.close()
 
-
 import struct
 
-import struct
-
-def binary_file_write_phasors(file, pair_list):
-    """Write a list of (magnitude, phase) pairs to a binary file where both values are floats."""
+def binary_file_write_phasors(file, triplet_list):
+    """Write a list of (frequency, magnitude, phase) triplets to a binary file where all values are floats."""
     with open(file, 'wb') as fw:
-        for pair in pair_list:
-            if isinstance(pair, tuple) and len(pair) == 2:
-                magnitude, phase = pair
-                if isinstance(magnitude, (int, float)) and isinstance(phase, (int, float)):
-                    # Pack the magnitude and phase as big-endian 4-byte floats
-                    fw.write(struct.pack('>ff', magnitude, phase))  # '>ff' for two big-endian 32-bit floats
+        for triplet in triplet_list:
+            if isinstance(triplet, tuple) and len(triplet) == 3:
+                frequency, magnitude, phase = triplet
+                if isinstance(frequency, (int, float)) and isinstance(magnitude, (int, float)) and isinstance(phase, (int, float)):
+                    # Pack the frequency, magnitude, and phase as big-endian 4-byte floats
+                    fw.write(struct.pack('>fff', frequency, magnitude, phase))  # '>fff' for three big-endian 32-bit floats
                 else:
-                    print(f"Invalid pair: {pair}. Both values should be either int or float.")
+                    print(f"Invalid triplet: {triplet}. All values should be either int or float.")
             else:
-                print(f"Invalid pair: {pair}. It should be a tuple of two values.")
+                print(f"Invalid triplet: {triplet}. It should be a tuple of three values (frequency, magnitude, phase).")
+
 
 def binary_file_append(file, data_list):
     fw = open(file, 'ab')

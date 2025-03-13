@@ -452,7 +452,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
     @pyqtSlot()
     def on_sc_pushButton_clicked(self):
         try:
-            if self.sc_pushButton.text() == 'SC':
+            if self.sc_pushButton.text() != 'Running':
                 # Check if free to run
                 self.run_if_ready_else_exit()
                 # Create experiment folder
@@ -460,7 +460,8 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 # Start
                 self.enter_sc_step(file_path, False)
             else:
-                ui_send_warning('Running, please wait...')
+                self.sc_t.stop()
+                # ui_send_warning('Running, please wait...')
         except Exception:
             pass
 

@@ -2,6 +2,7 @@
 # UI Import
 # --------------------------------------------------------------
 from PyQt6.QtCore import pyqtSignal, QThread
+import pydevd
 
 # --------------------------------------------------------------
 # User Import
@@ -59,7 +60,7 @@ class Init(QThread):
 
 
 # ==============================================================================================================================
-# Open Calibration
+# Short Calibration
 # ==============================================================================================================================
 class ShortCalibration(QThread):
     done_s = pyqtSignal(list)
@@ -72,47 +73,58 @@ class ShortCalibration(QThread):
         self.serial_obj = serial
         self.plot_obj = plot
         self.received_phasors = []  # Store received phasors
+        self.run = True
 
     def run(self):
         self.serial_obj.serial_timeout = 10000000
         try:
             # Start the calibration loop
-            while True:
+            while self.run:
                 sc_phasors = self.serial_obj.execute_cmd("start_sc_calib")
-                if sc_phasors is None:
-                    print("sc_phasors is None")
-                    break  # End loop if no more phasors
+                pydevd.settrace(suspend=True, trace_only_current_thread=False)
+                # Check if no phasor is returned
+                if sc_phasors[0] is None:
+                    print("No more phasors received. Ending calibration.")
+                    self.serial_obj.execute_cmd("stop_sc_calib")
+                    self.done_s.emit([self.file_path, self.next_step, self.received_phasors])  # Emit result to UI
+                    self.stop()
+                    break  # Exit loop if no more phasors are received
 
-                # Add received phasor to the list
+                # Add the received phasor to the list
                 self.received_phasors.append(sc_phasors[0])
 
                 # Console output and save to binary file
-                self.serial_obj.print(f'SC Calibration Phasors {sc_phasors}')
+                #self.serial_obj.print(f'\nSC Calibration Phasors {sc_phasors}')
                 binary_file_write_phasors(self.file_path + '\\%s_short_calibration.bin' % get_date_time(2), self.received_phasors)
 
                 # Update the plot with the new phasor
-                freq, mag, phase = sc_phasors[0]  # Unpack the phasor
                 self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors], [m for _, m, _ in self.received_phasors], [p for _, _, p in self.received_phasors], option='sc_calib')
 
                 # Check for stop signal (e.g., stop button pressed)
                 if self.next_step:  # Check for stop condition
                     self.serial_obj.execute_cmd("stop_sc_calib")
-                    break
+                    self.done_s.emit([self.file_path, self.next_step, self.received_phasors])  # Emit the result
+                    break  # Exit loop when stop command is issued
 
                 time.sleep(1)
 
         except Exception as exc:
-            print(f"ShortCalibration Error: {exc}")
-            self.done_s.emit([])
+           print(f"ShortCalibration Error: {exc}")
+           self.done_s.emit([])  # Emit empty result on error
         else:
-            self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
+           self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
 
+        # Reset after process ends
         self.serial_obj.serial_timeout = 1000000
         self.next_step = False
 
     def config(self, file_path, next_step=False):
         self.file_path = file_path
         self.next_step = next_step
+
+    def stop(self):
+        self.run = False  # Set run to False to exit the loop
+
 
 # ==============================================================================================================================
 # Open Calibration
@@ -127,45 +139,58 @@ class OpenCalibration(QThread):
         super(OpenCalibration, self).__init__(parent)
         self.serial_obj = serial
         self.plot_obj = plot
+        self.received_phasors = []  # Store received phasors
+        self.run = True
 
     def run(self):
         self.serial_obj.serial_timeout = 10000000
-        # ----------------------------------------------------------------------------------------------------------------------
         try:
-            # Cmd
-            oc_phasors = self.serial_obj.execute_cmd("start_oc_calib")
-            if oc_phasors is None:
-                print("oc_phasors is None")
+            # Start the calibration loop
+            while self.run:
+                # Get the phasors (frequency, magnitude, phase)
+                oc_phasors = self.serial_obj.execute_cmd("start_oc_calib")
+                if oc_phasors is None:
+                    print("oc_phasors is None, exiting loop.")
+                    self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
+                    self.stop()
+                    break  # Exit loop if no more phasors are received
 
-            # Console
-            self.serial_obj.print('\nS: OC Calib Phasors %s, ' % oc_phasors)
+                # Add the received phasor to the list
+                self.received_phasors.append(oc_phasors[0])
 
-            # Save data to a binary file
-            binary_file_write_phasors(self.file_path + '\\%s_open_calibration.bin' % get_date_time(2), oc_phasors)
+                # Console output and save to binary file
+                self.serial_obj.print(f'\nOC Calibration Phasors {oc_phasors}')
+                binary_file_write_phasors(self.file_path + '\\%s_open_calibration.bin' % get_date_time(2), self.received_phasors)
 
-            # Extract magnitude and phase from sc_phasors
-            # Assuming sc_phasors is a list of tuples [(magnitude1, phase1), (magnitude2, phase2), ...]
-            magnitudes = [phasor[0] for phasor in oc_phasors]
-            phases = [phasor[1] for phasor in oc_phasors]
+                # Update the plot with the new phasor
+                self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors],
+                                        [m for _, m, _ in self.received_phasors],
+                                        [p for _, _, p in self.received_phasors], option='oc_calib')
 
-            # Update the Bode plot
-            # We use a dashed line style for each phasor's plot
-            self.plot_obj.plot_bode([10, 100, 1000, 10000], magnitudes,
-                                    phases, option='oc_calib')  # Use an empty frequency array if frequencies are not available
+                # Check for stop signal (e.g., stop button pressed)
+                if self.next_step:  # Check for stop condition
+                    self.serial_obj.execute_cmd("stop_oc_calib")
+                    self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
+                    break  # Exit loop when stop command is issued
+
+                time.sleep(1)
 
         except Exception as exc:
-            print("OpenCalibration: " + str(exc))
-            self.done_s.emit([])
+            print(f"OpenCalibration Error: {exc}")
+            self.done_s.emit([])  # Emit empty result on error
         else:
-            self.done_s.emit([self.file_path, self.next_step, oc_phasors])
-        # ----------------------------------------------------------------------------------------------------------------------
+            self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
+
+        # Reset after process ends
         self.serial_obj.serial_timeout = 1000000
-        # Reset
         self.next_step = False
 
     def config(self, file_path, next_step=False):
         self.file_path = file_path
         self.next_step = next_step
+
+    def stop(self):
+        self.run = False  # Set run to False to exit the loop
 
 
 # ==============================================================================================================================
@@ -182,48 +207,61 @@ class ReadoutMeasurement(QThread):
         super(ReadoutMeasurement, self).__init__(parent)
         self.serial_obj = serial
         self.plot_obj = plot
+        self.received_phasors = []  # Store received phasors
+        self.run = True
 
     def run(self):
         try:
-            # Step 1: Get the phasors (magnitude, phase) for the measurement
-            dut_phasors = self.serial_obj.execute_cmd("readout_meas")
+            # Start the measurement loop
+            while self.run:
+                # Get the phasors (frequency, magnitude, phase) for the measurement
+                dut_phasors = self.serial_obj.execute_cmd("readout_meas")
+                if dut_phasors is None:
+                    print("dut_phasors is None, exiting loop.")
+                    self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
+                    self.stop()
+                    break  # Exit loop if no more phasors are received
 
-            if dut_phasors is None:
-                print("dut_phasors is None")
+                # Add the received phasor to the list
+                self.received_phasors.append(dut_phasors[0])
 
-            # Step 2: Console print the received phasors (you can modify this if you need more details)
-            self.serial_obj.print('\nS: Readout Measurement Phasors %s, ' % dut_phasors)
+                # Console output and save to binary file
+                self.serial_obj.print(f'\nS: Readout Measurement Phasors {dut_phasors}')
+                binary_file_write_phasors(self.file_path + '\\%s_readout_measurement.bin' % get_date_time(2),
+                                          self.received_phasors)
 
-            # Step 3: Save the data to a binary file
-            binary_file_write_phasors(self.file_path + '\\%s_readout_measurement.bin' % get_date_time(2),
-                                      dut_phasors)
+                # Update the plot with the new phasor
+                self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors],
+                                        [m for _, m, _ in self.received_phasors],
+                                        [p for _, _, p in self.received_phasors], option='meas')
 
-            # Step 4: Extract magnitude and phase from the received phasors
-            magnitudes = [phasor[0] for phasor in dut_phasors]
-            phases = [phasor[1] for phasor in dut_phasors]
+                # Emit the updated data to the UI (if needed)
+                self.update_s.emit(dut_phasors)
 
-            # Step 5: Update the Bode plot with the new data
-            # We use a frequency array and update the plot with dashed lines for measurement data
-            self.plot_obj.plot_bode([10, 100, 1000, 10000], magnitudes, phases, option='meas')
+                # Check for stop signal (e.g., stop button pressed)
+                if self.next_step:  # Check for stop condition
+                    self.serial_obj.execute_cmd("stop_readout_meas")
+                    self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
+                    break  # Exit loop when stop command is issued
 
-            # Step 6: Emit the updated data to the UI (if needed)
-            self.update_s.emit(dut_phasors)
-
-            time.sleep(1)  # Delay between readouts
+                time.sleep(1)  # Delay between readouts
 
         except Exception as exc:
             print(f"ReadoutMeasurement Error: {exc}")
-            self.done_s.emit([])
+            self.done_s.emit([])  # Emit empty result on error
         else:
-            self.done_s.emit([self.file_path, self.next_step, dut_phasors])
-        # ----------------------------------------------------------------------------------------------------------------------
+            self.done_s.emit([self.file_path, self.next_step, self.received_phasors])
+
+        # Reset after process ends
         self.serial_obj.serial_timeout = 1000000
-        # Reset
         self.next_step = False
 
     def config(self, file_path, next_step=False):
         self.file_path = file_path
         self.next_step = next_step
+
+    def stop(self):
+        self.run = False  # Set run to False to exit the loop
 
 
 # ==============================================================================================================================
