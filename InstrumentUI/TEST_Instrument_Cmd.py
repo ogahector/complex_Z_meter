@@ -160,7 +160,10 @@ class TESTInstrumentCmd(object):
                 (100, 2.2, 5),    # Frequency: 200Hz, Magnitude: 2.2, Phase: 5 degrees
                 (1000, 1.8, -5),   # Frequency: 300Hz, Magnitude: 1.8, Phase: -5 degrees
                 (10000, 1.5, -10)   # Frequency: 400Hz, Magnitude: 1.5, Phase: -10 degrees
-            ]
+            ],
+            "stop_sc_calib": 1,
+            "stop_oc_calib": 1,
+            "stop_readout_meas": 1
         }
 
         # Handle writing commands to serial (simulating MCU response)
@@ -192,10 +195,16 @@ class TESTInstrumentCmd(object):
                 return [phasor]  # Return single phasor
 
             # Handle the case for 'stop_sc_calib' command (reset the iterator)
-            elif command == "stop_sc_calib":
-                print("Stopping SC Calibration, resetting iterator.")
+            elif command in ["stop_sc_calib", "stop_oc_calib"]:
+                print("Stopping calibration, resetting iterator.")
                 self.response_iterator = None  # Reset the iterator when stop command is received
-                return "SC Calibration Stopped"
+                return "S: Calibration Stopped"
+
+            # Handle the case for 'stop_sc_calib' command (reset the iterator)
+            elif command == "stop_readout_meas":
+                print("Stopping measurement, resetting iterator.")
+                self.response_iterator = None  # Reset the iterator when stop command is received
+                return "S: Measurement Stopped"
 
             return response
         else:

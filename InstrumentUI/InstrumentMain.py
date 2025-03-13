@@ -427,10 +427,13 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         self.sc_t.config(file_path, next_step)
         self.sc_t.start()
 
-    def leave_sc_step(self):
+    def leave_sc_step(self, next_step):
         # UI
         self.sc_pushButton.setText('SC')
         ui_set_color_green(self.sc_pushButton)
+        # Thread
+        if next_step:
+            self.sc_t.next_step = next_step
 
     def sc_step_done(self, data_list):
         # Check if thread error
@@ -440,14 +443,14 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             sc_phasors = data_list[2]  # Short circuit phasors
 
             # Next step
-            if next_step or ui_send_question('Start open circuit calibration?'):
-                self.leave_sc_step()
+            if ui_send_question('Start open circuit calibration?'):
+                self.leave_sc_step(next_step)
                 self.enter_oc_step(file_path, next_step)
             else:
-                self.leave_sc_step()
+                self.leave_sc_step(True)
                 ui_send_info('Short circuit calibration done :)')
         else:
-            self.leave_sc_step()
+            self.leave_sc_step(False)
 
     @pyqtSlot()
     def on_sc_pushButton_clicked(self):
@@ -458,7 +461,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 # Create experiment folder
                 file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
                 # Start
-                self.enter_sc_step(file_path, False)
+                self.enter_sc_step(file_path, self.sc_t.next_step)
             else:
                 self.sc_t.stop()
                 # ui_send_warning('Running, please wait...')
@@ -488,7 +491,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             oc_phasors = data_list[2]  # Open circuit phasors
 
             # Next step
-            if next_step or ui_send_question('Start measurement?'):
+            if ui_send_question('Start measurement?'):
                 self.leave_oc_step()
                 self.enter_meas_step(file_path, next_step)
             else:
@@ -531,7 +534,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         self.leave_meas_step()
         if data_list:
             file_path, next_step = data_list[:2]
-            if next_step or ui_send_question('Start RLC Fitting?'):
+            if ui_send_question('Start RLC Fitting?'):
                 self.leave_meas_step()
                 self.enter_rlc_step(file_path, next_step)
             else:
