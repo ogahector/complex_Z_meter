@@ -245,11 +245,11 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             if not data:
                 self.serial_port_comboBox.setCurrentIndex(len(self.serial_name) - 1)
             else:
-                [ver, device_id, div] = data
+                [ver, device_id, clk] = data
                 # UI
                 self.clk_status_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.clk_status_title_label.setText('%.2f MHz' % (72.0 / (1 << div)))
-                ui_send_info('Device detected ...\nFirmware:  %d\nClock: %.2f MHz' % (ver, 72.0 / (1 << div)))
+                self.clk_status_title_label.setText('%.2f MHz' % clk)
+                ui_send_info('Device detected ...\nFirmware:  %d\nClock: %.2f MHz' % (ver, clk))
         except Exception:
             ui_send_error("Error: fail to open serial port")
             self.serial_port_comboBox.setCurrentIndex(len(self.serial_name) - 1)

@@ -458,12 +458,12 @@ class SerialOpenPort(QThread):
             ver = self.serial_obj.execute_cmd("get_version")
             device_id = self.serial_obj.execute_cmd("get_id")
             # Clock frequency
-            div = self.serial_obj.execute_cmd("get_clk_divpw")
+            clk = self.serial_obj.execute_cmd("get_clk_divpw")
         except Exception as exc:
             print("SerialOpenPort: " + str(exc))
             self.done_s.emit([])
         else:
-            self.done_s.emit([ver, device_id, div])
+            self.done_s.emit([ver, device_id, clk])
 
     def config(self, serial_port):
         self.serial_port = serial_port

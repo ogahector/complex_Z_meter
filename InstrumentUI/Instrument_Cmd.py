@@ -185,28 +185,27 @@ class DebugCommand(object):
         n_para = func>>12
         if n_para==0:
             return func, None, None
-        return func, None, None
-        # # Decode parameter 1
-        # try:
-        #     par1 = int(cmd[1], 0)
-        # except ValueError:
-        #     self.print("S: Invalid parameter '%s', must be a number\n" % cmd[1])
-        #     return None
-        # except IndexError:
-        #     self.print("S: Command '%s' requires %s parameter(s)\n" % (cmd[0], 'a' if n_para==1 else "two"))
-        #     return None
-        # if n_para == 1:
-        #     return func, par1, None
-        # # Decode parameter 2
-        # try:
-        #     par2 = int(cmd[2], 0)
-        # except ValueError:
-        #     self.print("S: Invalid parameter '%s', must be a number\n" % cmd[2])
-        #     return None
-        # except IndexError:
-        #     self.print("S: Command '%s' requires two parameters\n" % cmd[0])
-        #     return None
-        # return func, par1, par2
+        # Decode parameter 1
+        try:
+            par1 = int(cmd[1], 0)
+        except ValueError:
+            self.print("S: Invalid parameter '%s', must be a number\n" % cmd[1])
+            return None
+        except IndexError:
+            self.print("S: Command '%s' requires %s parameter(s)\n" % (cmd[0], 'a' if n_para==1 else "two"))
+            return None
+        if n_para == 1:
+            return func, par1, None
+        # Decode parameter 2
+        try:
+            par2 = int(cmd[2], 0)
+        except ValueError:
+            self.print("S: Invalid parameter '%s', must be a number\n" % cmd[2])
+            return None
+        except IndexError:
+            self.print("S: Command '%s' requires two parameters\n" % cmd[0])
+            return None
+        return func, par1, par2
 
     # Execute command
     def execute_cmd(self, input_command):
@@ -263,7 +262,7 @@ class DebugCommand(object):
         
         # - Send encoded command to MCU
         try:
-            cmd_send = cmd_send + b'\n' # newline delimiter character
+            cmd_send = cmd_send
             self.serial_obj.write(cmd_send)
             print(f'sent command: {cmd_send}')
         except:

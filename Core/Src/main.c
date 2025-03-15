@@ -73,6 +73,8 @@ UART_HandleTypeDef huart2;
 // Communication with the UI
 volatile uint8_t cmd_available = 0;
 volatile ui_command_t command = idle;
+volatile uint16_t param1 = 0;
+volatile uint16_t param2 = 0;
 volatile uint8_t rx_buffer[RX_CMD_BYTE_NB];
 volatile size_t rx_index = 0;
 
@@ -116,7 +118,7 @@ HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor);
 
 HAL_StatusTypeDef TransmitPhasorDataframe(phasor_t phasors[], uint32_t frequencies_visited[], switching_resistor_t res);
 
-void Process_Command(ui_command_t command);
+void Process_Command(ui_command_t command_received);
 
 /* USER CODE END PFP */
 
@@ -233,23 +235,16 @@ int main(void)
 
 #endif
 #ifdef NORMAL_MODE
-	  char msg[16];
-//	  command = Receive_Command();
-	  if(cmd_available)
-	  {
-		  cmd_available = 0;
-		  sprintf(msg, "This is the echo: %x $%u#", command, command);
 
-//		  TransmitStringRaw("This is the echo: $");
+	  if(Command_is_Available())
+	  {
+		  char msg[16];
+		  sprintf(msg, " %x ", command);
 		  TransmitStringRaw(msg);
-//		  TransmitStringLn("#");
+		  Process_Command(command);
 
 		  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-		  HAL_Delay(10);
 	  }
-
-
-	  HAL_Delay(100);
 
 #endif /*NORMAL MODE*/
 
@@ -843,12 +838,19 @@ HAL_StatusTypeDef TransmitPhasorDataframe(phasor_t phasors[], uint32_t frequenci
 	return TransmitStringLn("DONE!");
 }
 
+HAL_StatusTypeDef TransmitPhasorDataframeUI(char msg[], phasor_t phasors[], uint32_t frequencies_visited[], switching_resistor_t res)
+{
+
+}
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
 {
 	if(huart->Instance == USART2)
 	{
 		cmd_available = 0x01;
 		command = rx_buffer[0] << 8 | rx_buffer[1];
+		param1 = rx_buffer[2] << 8 | rx_buffer[3];
+		param2 = rx_buffer[4] << 8 | rx_buffer[5];
 
 		HAL_UART_Receive_IT(huart, rx_buffer, RX_CMD_BYTE_NB);
 	}
@@ -857,7 +859,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
 
 void Process_Command(ui_command_t command_received)
 {
-	static char msg[128];
+	static const size_t max_message_size = 3 * (6+2) * NFREQUENCIES;
+
+	char msg[128];
 
 	switch(command_received)
 	{
@@ -870,14 +874,15 @@ void Process_Command(ui_command_t command_received)
 
 	case get_id:
 	{
-		sprintf(msg, "ID: %u%%u#", BOARD_ID, BOARD_ID);
+		sprintf(msg, "ID: %d $%d#", BOARD_ID, BOARD_ID);
 		TransmitStringRaw(msg);
 		break;
 	}
 
 	case get_clk_divpw:
 	{
-		sprintf(msg, "Clock Frequency: %u$%u#", HAL_RCC_GetHCLKFreq(), HAL_RCC_GetHCLKFreq());
+		uint32_t clk_mhz = (uint32_t) (HAL_RCC_GetHCLKFreq() / 1e6);
+		sprintf(msg, "Clock Frequency: %lu $%lu#", clk_mhz, clk_mhz);
 		TransmitStringRaw(msg);
 		break;
 	}
@@ -888,6 +893,17 @@ void Process_Command(ui_command_t command_received)
 	{
 		sprintf(msg, "Power Supply Status %u$%u#", 1, 1);
 		TransmitStringRaw(msg);
+		break;
+	}
+
+	case rref_get_val:
+	{
+		sprintf(msg, "Current Resistor Value: %f\n$%f#", SwRes2Ohms(current_resistor), SwRes2Ohms(current_resistor));
+		TransmitStringRaw(msg);
+	}
+
+	case rref_set_val:
+	{
 		break;
 	}
 
