@@ -42,7 +42,7 @@
 #define NORMAL_MODE
 #define DEBUG_MODES
 #define ONBOARD_FSM_MODE
-#define BOARD_DEBUG_MODE
+//#define BOARD_DEBUG_MODE
 //#define UART_DEBUG_MODE
 //#define SWITCHING_RESISTOR_DEBUG_MODE
 
@@ -72,8 +72,8 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 // Communication with the UI
 volatile uint8_t cmd_available = 0;
-ui_command_t command = idle;
-volatile uint8_t rx_buffer[RX_BUFFER_SIZE];
+volatile ui_command_t command = idle;
+volatile uint8_t rx_buffer[RX_CMD_BYTE_NB];
 volatile size_t rx_index = 0;
 
 // Measuring and Signal Buffers
@@ -233,16 +233,23 @@ int main(void)
 
 #endif
 #ifdef NORMAL_MODE
-	  if(i % 100000) HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 	  char msg[16];
-	  command = Receive_Command();
-	  sprintf(msg, "%u", command);
+//	  command = Receive_Command();
+	  if(cmd_available)
+	  {
+		  cmd_available = 0;
+		  sprintf(msg, "This is the echo: %x $%u#", command, command);
 
-	  TransmitStringRaw("This is the echo: $");
-	  TransmitStringRaw(msg);
-	  TransmitStringLn("#");
+//		  TransmitStringRaw("This is the echo: $");
+		  TransmitStringRaw(msg);
+//		  TransmitStringLn("#");
 
-	  HAL_Delay(1000);
+		  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+		  HAL_Delay(10);
+	  }
+
+
+	  HAL_Delay(100);
 
 #endif /*NORMAL MODE*/
 
@@ -436,7 +443,7 @@ static void MX_DAC_Init(void)
   /** DAC channel OUT1 config
   */
   sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
-  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_DISABLE;
   if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
@@ -688,6 +695,7 @@ static void MX_DMA_Init(void)
   /* DMA2_Stream0_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+
 }
 
 /**
@@ -835,11 +843,58 @@ HAL_StatusTypeDef TransmitPhasorDataframe(phasor_t phasors[], uint32_t frequenci
 	return TransmitStringLn("DONE!");
 }
 
-
-void Process_Command(ui_command_t command)
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
 {
-	switch(command)
+	if(huart->Instance == USART2)
 	{
+		cmd_available = 0x01;
+		command = rx_buffer[0] << 8 | rx_buffer[1];
+
+		HAL_UART_Receive_IT(huart, rx_buffer, RX_CMD_BYTE_NB);
+	}
+}
+
+
+void Process_Command(ui_command_t command_received)
+{
+	static char msg[128];
+
+	switch(command_received)
+	{
+	case get_version:
+	{
+		sprintf(msg, "Current Version: %u.$%u#", DEVELOPMENT_VER, DEVELOPMENT_VER);
+		TransmitStringRaw(msg);
+		break;
+	}
+
+	case get_id:
+	{
+		sprintf(msg, "ID: %u%%u#", BOARD_ID, BOARD_ID);
+		TransmitStringRaw(msg);
+		break;
+	}
+
+	case get_clk_divpw:
+	{
+		sprintf(msg, "Clock Frequency: %u$%u#", HAL_RCC_GetHCLKFreq(), HAL_RCC_GetHCLKFreq());
+		TransmitStringRaw(msg);
+		break;
+	}
+
+	case check_status_3v3:
+	case check_status_neg12:
+	case check_status_pos12:
+	{
+		sprintf(msg, "Power Supply Status %u$%u#", 1, 1);
+		TransmitStringRaw(msg);
+		break;
+	}
+
+	case get_phasors:
+	{
+		break;
+	}
 
 	case idle:
 	{

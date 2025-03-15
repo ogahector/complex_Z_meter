@@ -13,8 +13,8 @@ from PyQt6.QtGui import QTextCursor, QColor, QFont
 # User Import
 # --------------------------------------------------------------
 from Instrument_Plot import PlotCanvas
-# from Instrument_Cmd       import *
-from TEST_Instrument_Cmd import *
+from Instrument_Cmd       import *
+# from TEST_Instrument_Cmd import *
 from Instrument_Thread import *
 from Instrument_Func import *
 
@@ -50,8 +50,8 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         self.plot_obj.move(335, 20)
 
         # Serial ---------------------------------------------------------------------------------------------------------------
-        self.serial_obj = TESTInstrumentCmd()
-        # self.serial_obj           = DebugCommand()
+        # self.serial_obj = TESTInstrumentCmd()
+        self.serial_obj           = DebugCommand()
         self.serial_obj.status_s = self.serial_status
         self.serial_obj.console_s = self.console_s
         self.serial_obj.msgbox_s = self.msgbox_error_s

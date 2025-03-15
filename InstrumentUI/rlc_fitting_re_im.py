@@ -85,7 +85,7 @@ def iterative_fit(model_func, freqs, data, initial_guess, bounds, tol=1e-6, max_
     for iteration in range(max_iter):
         popt, pcov = curve_fit(model_func, freqs, data, p0=current_guess, bounds=bounds)
         residuals = data - model_func(freqs, *popt)
-        ssq = np.mean(residuals**2)
+        ssq = np.sum(residuals**2)
         
         # Check convergence: if the change in parameters is below the tolerance.
         if np.all(np.abs(popt - current_guess) < tol):

@@ -10,29 +10,7 @@
 
 
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
-{
-	if(huart->Instance == USART2)
-	{
-	    if (rx_buffer[rx_index] == '\n' || rx_buffer[rx_index] == '\r')
-	    {
-	      rx_buffer[rx_index] = '\0';  // Null-terminate the string
-	      cmd_available = 1;        // Set flag
-	      rx_index = 0;                // Reset buffer index
-	    }
-	    else
-	    {
-	    	rx_index++;
-	    	if (rx_index >= sizeof(rx_buffer))
-	    	{
-	    		rx_index = 0;
-	    	}
-	    }
 
-	    // Restart reception for next byte
-	    HAL_UART_Receive_IT(huart, (uint8_t*)&rx_buffer[rx_index], RX_CMD_BYTE_NB);
-	}
-}
 
 ui_command_t Receive_Command(void)
 {

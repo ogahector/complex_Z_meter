@@ -11,7 +11,7 @@ STM32F446RETX_RAM.ld
 *.exe
 *.cfg
 
-
+pydevd_attach_to_process
 /*.settings
 /Binaries
 Includes
