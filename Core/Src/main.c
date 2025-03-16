@@ -41,7 +41,8 @@
 /* USER CODE BEGIN PD */
 #define NORMAL_MODE
 #define DEBUG_MODES
-#define ONBOARD_FSM_MODE
+//#define ONBOARD_FSM_MODE
+//#define ADC_DAC_DEBUG_MODE
 //#define BOARD_DEBUG_MODE
 //#define UART_DEBUG_MODE
 //#define SWITCHING_RESISTOR_DEBUG_MODE
@@ -204,11 +205,12 @@ int main(void)
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
 
+
   // assert 0 calibration phasors
   for(size_t i = 0; i < NFREQUENCIES; i++)
   {
 	  SC_CAL[i] = (phasor_t) {0,0};
-	  OC_CAL[i] = (phasor_t) {0,0};
+	  OC_CAL[i] = (phasor_t) { 1e32 ,0}; // some absurdly large value
 	  phasorZero[i] = (phasor_t) {0,0};
   }
 
@@ -217,6 +219,7 @@ int main(void)
   HAL_UART_Receive_IT(&huart2, rx_buffer, RX_CMD_BYTE_NB);
 
   Set_Signal_Frequency(100000);
+  Set_Sampling_Frequency(1500000);
 
   /* USER CODE END 2 */
 
@@ -225,6 +228,29 @@ int main(void)
   while (1)
   {
 	  i++;
+#ifdef ADC_DAC_DEBUG_MODE
+
+	  Sig_Gen_Disable();
+	  if(buttonPress())
+	  {
+		  Sig_Gen_Enable();
+		  Sampling_Enable();
+
+		  ADC_SampleSingleShot();
+
+		  Sampling_Disable();
+
+		  HAL_Delay(1);
+
+//		  TransmitUInt16Buffer(vmeas_buffer, ADC_BUFFER_SIZE);
+		  char msg[16];
+		  sprintf(msg, "%u\r\n", vmeas_buffer[0]);
+		  HAL_UART_Transmit(&huart2, msg, strlen(msg), HAL_MAX_DELAY);
+
+		  HAL_Delay(10);
+	  }
+	  continue;
+#endif
 #ifdef BOARD_DEBUG_MODE
 	  if(buttonPress())
 	  {
@@ -354,7 +380,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
   hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T2_TRGO;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 3;
+  hadc1.Init.NbrOfConversion = 2;
   hadc1.Init.DMAContinuousRequests = DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -376,15 +402,6 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_14;
   sConfig.Rank = 2;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_0;
-  sConfig.Rank = 3;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -999,7 +1016,10 @@ void Process_Command(ui_command_t command_received)
 	{
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-		Measurement_Routine_Zx(Zx_measured, SC_CAL, OC_CAL, current_resistor, frequencies_visited);
+//		Measurement_Routine_Zx(Zx_measured, SC_CAL, OC_CAL, current_resistor, frequencies_visited);
+
+		// not meant to be Zx_measured but oh well
+		Measurement_Routine_Voltage(Zx_measured, phasorZero, OC_CAL, current_resistor, frequencies_visited);
 
 		TransmitPhasorDataframeUI(frequencies_visited, Zx_measured, current_resistor);
 

@@ -13,7 +13,14 @@
 #include "relay.h"
 
 #define ADC_SAMPLES_PER_CHANNEL (5000) // 3k or 2k would be better ngl
-#define ADC_BUFFER_SIZE (3*ADC_SAMPLES_PER_CHANNEL)
+
+#ifdef ADC_DAC_DEBUG_MODE
+#define ADC_BUFFER_SIZE (2*2)
+#else
+#define ADC_BUFFER_SIZE (2*ADC_SAMPLES_PER_CHANNEL)
+#endif
+
+//#define ADC_BUFFER_SIZE 4
 #define F_SAMPLE_TIMER (2 * HAL_RCC_GetPCLK1Freq())
 #define NCONVERSIONCYCLES 45
 //#define ADC_BUFFER_SIZE 3
@@ -40,7 +47,7 @@ void ADC_SampleSingleShot(void);
  * @param buffB: Output buffer for channel B samples.
  * @param buffC: Output buffer for channel C samples.
  */
-void ADC_Separate_Channels(uint16_t buffADC[], uint16_t buffA[], uint16_t buffB[], uint16_t buffC[]);
+void ADC_Separate_Channels(uint16_t buffADC[], uint16_t buffA[], uint16_t buffB[]);
 
 /**
  * @brief Calculates the phasor of a single signal using the IQ method.
@@ -101,7 +108,7 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t 
  * @param vmeas2: Output buffer for channel 2.
  * @return The actual frequency (Hz) at which the ADC is sampling.
  */
-uint32_t Sample_Steady_State(uint32_t f0, uint16_t vmeas0[], uint16_t vmeas1[], uint16_t vmeas2[]);
+uint32_t Sample_Steady_State(uint32_t f0, uint16_t vmeas0[], uint16_t vmeas1[]);
 
 /**
  * @brief Samples steady-state phasors from the ADC data.
@@ -132,5 +139,7 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref);
 void Measurement_Routine_Zx(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
 
 void Measurement_Routine_Voltage(phasor_t output[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
+
+double wrap2_2pi(double phase);
 
 #endif /* SRC_DSP_H_ */

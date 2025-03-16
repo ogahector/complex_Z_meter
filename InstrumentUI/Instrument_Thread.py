@@ -213,10 +213,10 @@ class ReadoutMeasurement(QThread):
                 if i % 3 == 1:
                     magnitudes.append(dut_phasors[i])
                 if i % 3 == 2:
-                    phases.append((180/np.pi) * dut_phasors[i])
+                    phases.append(dut_phasors[i])
 
             # Add the received phasor to the list
-            self.received_phasors = [ [frequencies[i], magnitudes[i], phases[i]] for i in range(len(phases)) ]
+            self.received_phasors = [ [frequencies[i], 20*np.log10(magnitudes[i]), (180/np.pi) * phases[i]] for i in range(len(phases)) ]
 
             # Update the plot with the new phasor
             self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors],
