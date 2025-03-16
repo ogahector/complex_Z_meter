@@ -11,18 +11,30 @@
 #include "string.h"
 #include "transmits.h"
 
-volatile uint8_t adcDmaTransferComplete;
-uint8_t adcDmaHalfTransfer;
+volatile uint8_t adcDmaTransferComplete1;
+volatile uint8_t adcDmaTransferComplete2;
+volatile uint8_t adcDmaTransferComplete3;
+volatile uint8_t adcDmaHalfTransfer1;
+volatile uint8_t adcDmaHalfTransfer2;
+volatile uint8_t adcDmaHalfTransfer3;
 uint16_t vmeas_buffer_copy[ADC_BUFFER_SIZE];
-uint16_t vmeas0_copy[ADC_SAMPLES_PER_CHANNEL];
-uint16_t vmeas1_copy[ADC_SAMPLES_PER_CHANNEL];
-uint16_t vmeas2_copy[ADC_SAMPLES_PER_CHANNEL];
+//uint16_t vmeas0_copy[ADC_SAMPLES_PER_CHANNEL];
+//uint16_t vmeas1_copy[ADC_SAMPLES_PER_CHANNEL];
+//uint16_t vmeas2_copy[ADC_SAMPLES_PER_CHANNEL];
 
 void HAL_ADC_HalfConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	if(hadc->Instance == ADC1)
 	{
-		adcDmaHalfTransfer = 1;
+		adcDmaHalfTransfer1 = 1;
+	}
+	if(hadc->Instance == ADC2)
+	{
+		adcDmaHalfTransfer2 = 1;
+	}
+	if(hadc->Instance == ADC3)
+	{
+		adcDmaHalfTransfer3 = 1;
 	}
 }
 
@@ -31,35 +43,71 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	if(hadc->Instance == ADC1)
 	{
-		adcDmaTransferComplete = 1;
+		adcDmaTransferComplete1 = 1;
+		Sampling_Disable();
+	}
+	if(hadc->Instance == ADC2)
+	{
+		adcDmaTransferComplete2 = 1;
+		Sampling_Disable();
+	}
+	if(hadc->Instance == ADC3)
+	{
+		adcDmaTransferComplete3 = 1;
 		Sampling_Disable();
 	}
 }
 
 void ADC_SampleSingleShot(void)
 {
-	adcDmaTransferComplete = 0;
-	adcDmaHalfTransfer = 0;
+	adcDmaTransferComplete1 = 0;
+	adcDmaTransferComplete2 = 0;
+	adcDmaTransferComplete3 = 0;
+	adcDmaHalfTransfer1 = 0;
+	adcDmaHalfTransfer2 = 0;
+	adcDmaHalfTransfer3 = 0;
 
-    if (HAL_ADC_Start_DMA(&hadc1, (uint32_t *) vmeas_buffer, ADC_BUFFER_SIZE) != HAL_OK)
+    if (HAL_ADC_Start_DMA(&hadc1, (uint32_t *) vmeas_buffer1, ADC_BUFFER_SIZE) != HAL_OK)
     {
     	while(1) TransmitStringLn("BAD DMA START");
     }
 
+    if (HAL_ADC_Start_DMA(&hadc2, (uint32_t *) vmeas_buffer2, ADC_BUFFER_SIZE) != HAL_OK)
+    {
+    	while(1) TransmitStringLn("BAD DMA START");
+    }
+
+    if (HAL_ADC_Start_DMA(&hadc3, (uint32_t *) vmeas_buffer3, ADC_BUFFER_SIZE) != HAL_OK)
+    {
+    	while(1) TransmitStringLn("BAD DMA START");
+    }
+
+	HAL_Delay(1);
+
+	Sampling_Enable();
+	Sig_Gen_Enable();
+
+
     uint32_t timeout = 1000 * ADC_BUFFER_SIZE / Get_Sampling_Frequency() + HAL_GetTick();
 
-    while(adcDmaTransferComplete == 0)
+    // Same trigger at same frequency => as soon as one of them is done, all of them are
+    // It's just that it's impossible to determine which one will be done first
+    // however, we can deterministically determine once one of them is, all of them will as well
+    // => as soon as one of them switches, we can end sampling
+    while(adcDmaTransferComplete1 == 0 && adcDmaTransferComplete2 == 0 && adcDmaTransferComplete3== 0)
     {
 //    	__WFI();
+    	 // In case the interrupt is missed which ONLY happens at VHF anyways
+    	// at VHF OR only when sending a massive chunk of data while sampling
     	if(HAL_GetTick() > timeout)
     	{
-    		break; // In case the interrupt is missed which ONLY happens at VHF anyways
+    		break;
     	}
     	// Wait BLOCKING to allow for full single shot DMA transfer
     }
 
     // ideally should be an atomic load / store of atomic ints but oh wells
-	memcpy(vmeas_buffer_copy, vmeas_buffer, ADC_BUFFER_SIZE * sizeof(uint16_t));
+//	memcpy(vmeas_buffer_copy, vmeas_buffer1, ADC_BUFFER_SIZE * sizeof(uint16_t));
 }
 
 
@@ -91,14 +139,13 @@ uint32_t Sample_Steady_State(uint32_t f0, uint16_t vmeas0[], uint16_t vmeas1[], 
 	Sig_Gen_Disable();
 	uint32_t actualFreq = Set_Signal_Frequency(f0);
 
-	Sampling_Enable();
-	Sig_Gen_Enable();
-
 
 	ADC_SampleSingleShot();
 
-
-	ADC_Separate_Channels(vmeas_buffer_copy, vmeas2, vmeas1, vmeas0);
+	memcpy(vmeas0, vmeas_buffer1, ADC_BUFFER_SIZE * sizeof(uint16_t));
+	memcpy(vmeas1, vmeas_buffer2, ADC_BUFFER_SIZE * sizeof(uint16_t));
+	memcpy(vmeas2, vmeas_buffer3, ADC_BUFFER_SIZE * sizeof(uint16_t));
+//	ADC_Separate_Channels(vmeas_buffer_copy, vmeas2, vmeas1, vmeas0);
 
 	Sampling_Disable();
 	Sig_Gen_Disable();
@@ -108,14 +155,16 @@ uint32_t Sample_Steady_State(uint32_t f0, uint16_t vmeas0[], uint16_t vmeas1[], 
 
 uint32_t Sample_Steady_State_Phasors(uint32_t f0, phasor_t* input, phasor_t* output)
 {
-	uint16_t vmeas0[ADC_SAMPLES_PER_CHANNEL];
-	uint16_t vmeas1[ADC_SAMPLES_PER_CHANNEL];
-	uint16_t vmeas2[ADC_SAMPLES_PER_CHANNEL];
+	uint16_t vmeas0[ADC_BUFFER_SIZE];
+	uint16_t vmeas1[ADC_BUFFER_SIZE];
+	uint16_t vmeas2[ADC_BUFFER_SIZE];
 	uint32_t actualFreq = Sample_Steady_State(f0, vmeas0, vmeas1, vmeas2);
 
 	*input = (phasor_t) {1, 0};
-	*output = Get_Phasor_2Sig(vmeas1, vmeas0, ADC_SAMPLES_PER_CHANNEL, ADC_SAMPLES_PER_CHANNEL,
-			Get_Signal_Frequency(), Get_Sampling_Frequency());
+//	*output = Get_Phasor_2Sig(vmeas1, vmeas2, ADC_SAMPLES_PER_CHANNEL, ADC_SAMPLES_PER_CHANNEL,
+//			Get_Signal_Frequency(), Get_Sampling_Frequency());
+	*output = Get_Phasor_2Sig(vmeas1, vmeas2, ADC_BUFFER_SIZE, ADC_BUFFER_SIZE,
+			actualFreq, Get_Sampling_Frequency());
 
 	return actualFreq;
 }
@@ -132,7 +181,7 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref)
 
 	// 1e6 WORKS-ish - use 500k is better
 	// This may be the main bottleneck
-	Set_Sampling_Frequency(1500000);
+	Set_Sampling_Frequency(500000);
 	// Initial sampling to give a baseline and fill the system caps
 	// This is a good fix! Verified in practice
 	ADC_SampleSingleShot();
@@ -151,6 +200,8 @@ void Measurement_Routine_Zx(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zo
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
+	Set_Sampling_Frequency(500000);
+
 	phasor_t v1[NFREQUENCIES];
 	phasor_t v2[NFREQUENCIES];
 
@@ -158,7 +209,9 @@ void Measurement_Routine_Zx(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zo
 	{
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &v2[i]);
 		Zx_buff[i] = Calculate_Zx_Calibrated(v1[i], v2[i], Rref, Zsm_buff[i], Zom_buff[i]);
+		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 	}
+	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 }
 
 void Measurement_Routine_Voltage(phasor_t output[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[])
@@ -205,6 +258,11 @@ phasor_t Get_Phasor_1Sig(uint16_t sig[], size_t len, uint32_t f0, uint32_t fs)
 	I /= len;
 	Q /= len;
 
+//	if(isnan(Q/I))
+//	{
+//		while(1) TransmitStringRaw("IQ NAN!!");
+//	}
+
 	return (phasor_t) {
 		sqrt(I*I + Q*Q),
 		atan2(Q, I)
@@ -217,6 +275,11 @@ phasor_t Get_Phasor_2Sig(uint16_t sig[], uint16_t ref[], size_t lensig, size_t l
 	// the ref_cos and ref_sin twice
 	phasor_t input = Get_Phasor_1Sig(ref, lenref, f0, fs);
 	phasor_t output = Get_Phasor_1Sig(sig, lensig, f0, fs);
+
+//	if(input.magnitude == 0)
+//	{
+//		while(1) TransmitStringRaw("2-phasor NAN!!");
+//	}
 
 	return (phasor_t) {
 		output.magnitude / input.magnitude,
@@ -274,8 +337,11 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t 
 	phasor_t Z_temp2 = phasor_sub(Zm, Zsm);
 	phasor_t Z_temp3 = phasor_sub(Zom, Zm);
 	 // edge case -> div by 0 => 0s will be ignored in dB
-	if(Z_temp3.magnitude == 0) return (phasor_t) {0,0};
-
+		if(Z_temp3.magnitude == 0) return (phasor_t) {0,0};
+//	if(Z_temp3.magnitude == 0)
+//	{
+//		while(1) TransmitStringRaw("2-phasor NAN!!");
+//	}
 	return (phasor_t) {
 		Z_temp1.magnitude * Z_temp2.magnitude / Z_temp3.magnitude,
 		Z_temp1.phaserad + Z_temp2.phaserad - Z_temp3.phaserad

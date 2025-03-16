@@ -69,7 +69,8 @@ HAL_StatusTypeDef TransmitString(char msg[])
 
 HAL_StatusTypeDef TransmitStringRaw(char msg[])
 {
-	return HAL_UART_Transmit(&huart2, msg, (uint16_t) strlen(msg), HAL_MAX_DELAY);
+//	return HAL_UART_Transmit(&huart2, msg, (uint16_t) strlen(msg), HAL_MAX_DELAY);
+	return HAL_UART_Transmit(&huart2, msg, (uint16_t) strlen(msg), 5);
 }
 
 HAL_StatusTypeDef TransmitStringLn(char msg[])
@@ -152,7 +153,7 @@ HAL_StatusTypeDef TransmitTwoUInt16Buffer(uint16_t buffer1[], uint16_t buffer2[]
     for (size_t i = 0; i < size-1; i++)
     {
         // Format the integer value into a string followed by a newline
-        sprintf(msg, "%u %u ", buffer1[i], buffer2[i]);
+        sprintf(msg, "%u %u \r\n", buffer1[i], buffer2[i]);
 
         // Transmit the formatted string over USART
         if (TransmitStringRaw(msg) != HAL_OK)
@@ -161,7 +162,7 @@ HAL_StatusTypeDef TransmitTwoUInt16Buffer(uint16_t buffer1[], uint16_t buffer2[]
         }
     }
 
-    sprintf(msg, "%u %u", buffer1[size-1], buffer2[size-1]);
+    sprintf(msg, "%u %u \r\n", buffer1[size-1], buffer2[size-1]);
 
     // Transmit the formatted string over USART
     if (TransmitStringRaw(msg) != HAL_OK)
