@@ -258,7 +258,7 @@ phasor_t Calculate_Zx_Raw(phasor_t v1, phasor_t v2, switching_resistor_t Rref)
 {
 	phasor_t vdiff = phasor_sub(v1, v2);
 	return (phasor_t) {
-		((double) Rref/1000) * v2.magnitude / vdiff.magnitude, // divide my 1000 bc its in mOhms!!
+		((double) (Rref/1000)) * v2.magnitude / vdiff.magnitude, // divide my 1000 bc its in mOhms!!
 		v2.phaserad - vdiff.phaserad
 	};
 }
@@ -273,7 +273,8 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t 
 	phasor_t Z_temp1 = phasor_sub(Zom, Zsm);
 	phasor_t Z_temp2 = phasor_sub(Zm, Zsm);
 	phasor_t Z_temp3 = phasor_sub(Zom, Zm);
-//	if(Z_temp3.magnitude == 0) Z_temp3.magnitude = 1;
+	 // edge case -> div by 0 => 0s will be ignored in dB
+	if(Z_temp3.magnitude == 0) return (phasor_t) {0,0};
 
 	return (phasor_t) {
 		Z_temp1.magnitude * Z_temp2.magnitude / Z_temp3.magnitude,

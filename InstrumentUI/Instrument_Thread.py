@@ -190,33 +190,44 @@ class ReadoutMeasurement(QThread):
     def run(self):
         try:
             # Start the measurement loop
-            while self.run:
-                # Get the phasors (frequency, magnitude, phase) for the measurement
-                dut_phasors = self.serial_obj.execute_cmd("readout_meas")
+            # Get the phasors (frequency, magnitude, phase) for the measurement
+            dut_phasors = self.serial_obj.execute_cmd("readout_meas")
+            print(np.size(dut_phasors))
 
-                # Check if no phasor is returned
-                if dut_phasors[0] is None:
-                    print("No more phasors received. Saving data to file. Ending readout measurement.")
-                    # Save to binary file
-                    write_phasors_to_text_file(self.file_path + '\\%s_readout_measurement.txt' % get_date_time(2),
-                                              self.received_phasors)
+            # Check if no phasor is returned
+            if dut_phasors[0] is None: # idk what the top condition would be?
+                print("No more phasors received. Saving data to file. Ending readout measurement.")
+                # Save to binary file
+                write_phasors_to_text_file(self.file_path + '\\%s_readout_measurement.txt' % get_date_time(2),
+                                            self.received_phasors)
 
-                    self.done_s.emit([self.file_path, self.received_phasors])
-                    self.stop()
-                    break  # Exit loop if no more phasors are received
+                self.done_s.emit([self.file_path, self.received_phasors])
+                self.stop()
 
-                # Add the received phasor to the list
-                self.received_phasors.append(dut_phasors[0])
+            frequencies = []
+            magnitudes = []
+            phases = [] # convert to degs
+            for i in range(len(dut_phasors)):
+                if i % 3 == 0:
+                    frequencies.append(dut_phasors[i])
+                if i % 3 == 1:
+                    magnitudes.append(dut_phasors[i])
+                if i % 3 == 2:
+                    phases.append((180/np.pi) * dut_phasors[i])
 
-                # Update the plot with the new phasor
-                self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors],
+            # Add the received phasor to the list
+            self.received_phasors = [ [frequencies[i], magnitudes[i], phases[i]] for i in range(len(phases)) ]
+
+            # Update the plot with the new phasor
+            self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors],
                                         [m for _, m, _ in self.received_phasors],
                                         [p for _, _, p in self.received_phasors], option='meas')
 
-                # Emit the updated data to the UI (if needed)
-                self.update_s.emit(dut_phasors)
 
-                time.sleep(1)  # Delay between readouts
+            # Emit the updated data to the UI (if needed)
+            self.update_s.emit(dut_phasors)
+
+            time.sleep(1)  # Delay between readouts
 
         except Exception as exc:
             print(f"ReadoutMeasurement Error: {exc}")
@@ -406,6 +417,7 @@ class ReferenceResistor(QThread):
         try:
             if self.value is not None:
                 self.serial_obj.execute_cmd("rref_set_val", self.value)
+                print(self.value)
             rref_value = self.serial_obj.execute_cmd("rref_get_val")
             self.done_s.emit([rref_value])
         except Exception as exc:

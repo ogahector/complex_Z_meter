@@ -85,7 +85,7 @@ while True:
     if command == "":
         command = input("Enter command ('C' for calibration, 'M' for measurement): ")
     if command == 'C':
-        ser.write(b'C\n')
+        ser.write(0x0200)
         command == 'measuring'
     elif command == 'M':
         ser.write(b'M\n')

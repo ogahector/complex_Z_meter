@@ -31,7 +31,6 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "relay.h"
 #include "dsp.h"
 #include "sig_gen.h"
 #include "dual_spi_adc.h"
@@ -39,6 +38,7 @@ extern "C" {
 #include <sampling.h>
 #include <stdint.h>
 #include "math.h"
+#include "relay.h"
 
 /* USER CODE END Includes */
 

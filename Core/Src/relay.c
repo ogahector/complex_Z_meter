@@ -40,8 +40,3 @@ void Choose_Switching_Resistor(switching_resistor_t res)
 	HAL_Delay(RELAY_SWITCH_DELAY_MS);
 }
 
-
-inline double SwRes2Ohms(switching_resistor_t res)
-{
-	return (double) (res/1000);
-}

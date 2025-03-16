@@ -69,7 +69,7 @@ command_table = \
         # ----------------------------------------------------------------
         # STM32 Peripheral
         # ----------------------------------------------------------------
-        "start_readout_meas": 0x2200,
+        "readout_meas": 0x2200,
         "stop_readout_meas": 0x2201,
         "get_phasors": 0x2202,
         "start_sc_calib": 0x2203,

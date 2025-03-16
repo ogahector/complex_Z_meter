@@ -35,14 +35,14 @@ command_table = \
     # ----------------------------------------------------------------
     # STM32 Peripheral
     # ----------------------------------------------------------------
-    "readout_time":                     0x2200,
-    "get_phasors":                      0x2202,
-    "start_sc_calib":                   0x2203,
-    "start_oc_calib":                   0x2204,
-    "stop_sc_calib":                    0x2205,
-    "stop_oc_calib":                    0x2206,
-    "rref_get_val":                     0x2300,
-    "rref_set_val":                     0x2301,
+    "readout_meas":                     0x0200,
+    "get_phasors":                      0x0202,
+    "start_sc_calib":                   0x0203,
+    "start_oc_calib":                   0x0204,
+    "stop_sc_calib":                    0x0205,
+    "stop_oc_calib":                    0x0206,
+    "rref_get_val":                     0x0300,
+    "rref_set_val":                     0x1301,
 
     # - DAC & ADC
     "dac_set_val":                      0x1103, 
@@ -83,7 +83,7 @@ class DebugCommand(object):
         self.serial_port        = None  # COM Port
         self.serial_connected   = False # State
         self.serial_ready       = True  # Mutex
-        self.serial_timeout     = 1000000
+        self.serial_timeout     = 5000000
 
     def set_timeout(self, time_cnt):
         self.serial_timeout = time_cnt
@@ -339,7 +339,7 @@ class DebugCommand(object):
                     raise TimeoutError
 
         # - Decode returned data
-        print(rdata_all)
+        # print(rdata_all)
         try:
             if rdata_all[1]!= "[":
                 data = int(rdata_all[1:-1]) if rdata_all!='$#' else None
@@ -348,7 +348,10 @@ class DebugCommand(object):
                 # "[1,2,3]" -> [1,2,3]
                 data_dict = {'dataList': []}
                 exec('dataList=%s' % rdata_all[1:-1],  data_dict)
+                # exec('dataList=%s' % rdata_all[1:-1])
+                # data_dict['dataList'] = dataList
                 data = data_dict['dataList']
+                print(f'data: {data}')
         except:
             self.error('Serial: Decoding Failed')
             print(f'rdata_all: {rdata_all}')

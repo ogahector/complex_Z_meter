@@ -27,7 +27,7 @@
 #include "stdio.h"
 #include "math.h"
 #include "stdbool.h"
-
+#include "relay.h"
 #include "sig_gen.h"
 
 /* USER CODE END Includes */
@@ -88,7 +88,7 @@ switching_resistor_t current_resistor;
 // Calibration IMPEDANCE values
 phasor_t OC_CAL[NFREQUENCIES];
 phasor_t SC_CAL[NFREQUENCIES];
-phasor_t known_zero[NFREQUENCIES];
+phasor_t phasorZero[NFREQUENCIES];
 
 // Measured Impedance Values
 phasor_t Zx_measured[NFREQUENCIES];
@@ -117,6 +117,9 @@ HAL_StatusTypeDef TransmitPhasorRaw(phasor_t phasor);
 HAL_StatusTypeDef TransmitPhasorLn(phasor_t phasor);
 
 HAL_StatusTypeDef TransmitPhasorDataframe(phasor_t phasors[], uint32_t frequencies_visited[], switching_resistor_t res);
+HAL_StatusTypeDef TransmitPhasorSingleUI(uint32_t freq, phasor_t phasor);
+HAL_StatusTypeDef TransmitPhasorBufferUI(uint32_t freqs[], phasor_t phasors[]);
+HAL_StatusTypeDef TransmitPhasorDataframeUI(uint32_t freqs[], phasor_t phasors[], switching_resistor_t res);
 
 void Process_Command(ui_command_t command_received);
 
@@ -206,7 +209,7 @@ int main(void)
   {
 	  SC_CAL[i] = (phasor_t) {0,0};
 	  OC_CAL[i] = (phasor_t) {0,0};
-	  known_zero[i] = (phasor_t) {0,0};
+	  phasorZero[i] = (phasor_t) {0,0};
   }
 
   current_resistor = RESISTOR1;
@@ -238,12 +241,7 @@ int main(void)
 
 	  if(Command_is_Available())
 	  {
-		  char msg[16];
-		  sprintf(msg, " %x ", command);
-		  TransmitStringRaw(msg);
 		  Process_Command(command);
-
-		  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 	  }
 
 #endif /*NORMAL MODE*/
@@ -838,9 +836,44 @@ HAL_StatusTypeDef TransmitPhasorDataframe(phasor_t phasors[], uint32_t frequenci
 	return TransmitStringLn("DONE!");
 }
 
-HAL_StatusTypeDef TransmitPhasorDataframeUI(char msg[], phasor_t phasors[], uint32_t frequencies_visited[], switching_resistor_t res)
+HAL_StatusTypeDef TransmitPhasorSingleUI(uint32_t freq, phasor_t phasor)
 {
+	char msg[32 + 6 + 2 + 2 + 2 + 2*(6+2)];
+	// message len + 6 freq digits + 2 brackets + 2 commas + 2 delimiter flags + 2 doubles + padding extra
+	sprintf(msg, "Phasor: [%lu, %.6f, %.6f] $[%lu,%.6f,%.6f]#",
+			freq, phasor.magnitude, phasor.phaserad,
+			freq, phasor.magnitude, phasor.phaserad);
+	return TransmitStringRaw(msg);
+}
 
+HAL_StatusTypeDef TransmitPhasorBufferUI(uint32_t freqs[], phasor_t phasors[])
+{
+	char msg[32 + 6 + 2 + 2 + 2 + 2*(6+2)];
+	// message len + 6 freq digits + 2 brackets + 2 commas + 2 delimiter flags + 2 doubles + padding extra
+	TransmitStringRaw("Sending Phasor DataFrame (please work) $[");
+	for(size_t i = 0; i < NFREQUENCIES; i++)
+	{
+		sprintf(msg, "%lu,%.6f,%.6f", freqs[i], phasors[i].magnitude, phasors[i].phaserad);
+		TransmitStringRaw(msg);
+	}
+	return TransmitStringRaw("]#");
+}
+
+HAL_StatusTypeDef TransmitPhasorDataframeUI(uint32_t freqs[], phasor_t phasors[], switching_resistor_t res)
+{
+	// include switching resistor choice?
+	// message len + 6 freq digits + 2 brackets + 2 commas + 2 delimiter flags + 2 doubles + padding extra
+	TransmitStringRaw("Sending Phasor DataFrame (please work) $[");
+	for(size_t i = 0; i < NFREQUENCIES-1; i++)
+	{
+		char msg[32 + 6 + 2 + 2 + 2 + 2*(6+2)];
+		sprintf(msg, "%lu,%.6f,%.6f,", freqs[i], phasors[i].magnitude, phasors[i].phaserad);
+		TransmitStringRaw(msg);
+	}
+	char msg[32 + 6 + 2 + 2 + 2 + 2*(6+2)];
+	sprintf(msg, "%lu,%.6f,%.6f", freqs[NFREQUENCIES - 1], phasors[NFREQUENCIES - 1].magnitude, phasors[NFREQUENCIES - 1].phaserad);
+	TransmitStringRaw(msg);
+	return TransmitStringRaw("]#");
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
@@ -859,22 +892,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
 
 void Process_Command(ui_command_t command_received)
 {
-	static const size_t max_message_size = 3 * (6+2) * NFREQUENCIES;
-
 	char msg[128];
 
 	switch(command_received)
 	{
 	case get_version:
 	{
-		sprintf(msg, "Current Version: %u.$%u#", DEVELOPMENT_VER, DEVELOPMENT_VER);
+		sprintf(msg, "Current Version: %u.\n$%u#", DEVELOPMENT_VER, DEVELOPMENT_VER);
 		TransmitStringRaw(msg);
 		break;
 	}
 
 	case get_id:
 	{
-		sprintf(msg, "ID: %d $%d#", BOARD_ID, BOARD_ID);
+		sprintf(msg, "ID: %d \n$%d#", BOARD_ID, BOARD_ID);
 		TransmitStringRaw(msg);
 		break;
 	}
@@ -882,7 +913,7 @@ void Process_Command(ui_command_t command_received)
 	case get_clk_divpw:
 	{
 		uint32_t clk_mhz = (uint32_t) (HAL_RCC_GetHCLKFreq() / 1e6);
-		sprintf(msg, "Clock Frequency: %lu $%lu#", clk_mhz, clk_mhz);
+		sprintf(msg, "Clock Frequency: %lu \n$%lu#", clk_mhz, clk_mhz);
 		TransmitStringRaw(msg);
 		break;
 	}
@@ -891,19 +922,88 @@ void Process_Command(ui_command_t command_received)
 	case check_status_neg12:
 	case check_status_pos12:
 	{
-		sprintf(msg, "Power Supply Status %u$%u#", 1, 1);
+		sprintf(msg, "Power Supply Status %u\n$%u#", 1, 1);
 		TransmitStringRaw(msg);
 		break;
 	}
 
 	case rref_get_val:
 	{
-		sprintf(msg, "Current Resistor Value: %f\n$%f#", SwRes2Ohms(current_resistor), SwRes2Ohms(current_resistor));
+		double res_ohms = (double) (current_resistor / 1000);
+		sprintf(msg, "Current Resistor Value: %f\n$%f#", res_ohms, res_ohms);
 		TransmitStringRaw(msg);
 	}
 
 	case rref_set_val:
 	{
+		switching_resistor_t new_res;
+		switch(param1) // determine correct switch cases
+		{
+		case 1:
+		{
+			new_res = RESISTOR1;
+			break;
+		}
+		case 2:
+		{
+			new_res = RESISTOR2;
+		}
+		case 3:
+		{
+			new_res = RESISTOR3;
+			break;
+		}
+		default:
+		{
+			new_res = RESISTOR0;
+			break;
+		}
+		}
+		current_resistor = new_res;
+		Choose_Switching_Resistor(new_res);
+
+		break;
+	}
+
+	case start_sc_calib:
+	{
+		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+
+		current_resistor = RESISTOR0;
+		Choose_Switching_Resistor(current_resistor);
+
+		Measurement_Routine_Zx(SC_CAL, phasorZero, phasorZero, current_resistor, frequencies_visited);
+
+//		TransmitPhasorDataframeUI(frequencies_visited, SC_CAL, current_resistor); // ? idk if needed
+
+		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+		break;
+	}
+
+	case start_oc_calib:
+	{
+		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+
+		current_resistor = RESISTOR3;
+		Choose_Switching_Resistor(current_resistor);
+
+		Measurement_Routine_Zx(OC_CAL, phasorZero, phasorZero, current_resistor, frequencies_visited);
+
+//		TransmitPhasorDataframeUI(frequencies_visited, OC_CAL, current_resistor);
+
+		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+		break;
+	}
+
+	case readout_meas:
+	{
+		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+
+		Measurement_Routine_Zx(Zx_measured, SC_CAL, OC_CAL, current_resistor, frequencies_visited);
+
+		TransmitPhasorDataframeUI(frequencies_visited, Zx_measured, current_resistor);
+
+		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 		break;
 	}
 
