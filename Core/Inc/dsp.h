@@ -12,9 +12,9 @@
 #include "main.h"
 #include "relay.h"
 
-#define ADC_SAMPLES_PER_CHANNEL (5000) // 3k or 2k would be better ngl
+//#define ADC_SAMPLES_PER_CHANNEL (5000) // 3k or 2k would be better ngl
 //#define ADC_BUFFER_SIZE (3*ADC_SAMPLES_PER_CHANNEL)
-#define ADC_BUFFER_SIZE 10000
+#define ADC_BUFFER_SIZE 8000
 #define F_SAMPLE_TIMER (2 * HAL_RCC_GetPCLK1Freq())
 #define NCONVERSIONCYCLES 45
 //#define ADC_BUFFER_SIZE 3

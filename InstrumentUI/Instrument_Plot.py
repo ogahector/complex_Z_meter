@@ -202,7 +202,8 @@ class PlotCanvas(FigureCanvas):
         self.plots_phase[option] = bode_phase_fig
 
         # Update axes limits based on data
-        self.bode_mag_ax.relim()
+        # self.bode_mag_ax.relim()
+        self.bode_mag_ax.set_ylim(bottom= -20, top= 40)
         self.bode_mag_ax.autoscale_view()
 
         self.bode_phase_ax.relim()

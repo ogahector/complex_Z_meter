@@ -44,22 +44,20 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	if(hadc->Instance == ADC1)
 	{
 		adcDmaTransferComplete1 = 1;
-		Sampling_Disable();
 	}
 	if(hadc->Instance == ADC2)
 	{
 		adcDmaTransferComplete2 = 1;
-		Sampling_Disable();
 	}
 	if(hadc->Instance == ADC3)
 	{
 		adcDmaTransferComplete3 = 1;
-		Sampling_Disable();
 	}
 }
 
 void ADC_SampleSingleShot(void)
 {
+
 	adcDmaTransferComplete1 = 0;
 	adcDmaTransferComplete2 = 0;
 	adcDmaTransferComplete3 = 0;
@@ -82,10 +80,11 @@ void ADC_SampleSingleShot(void)
     	while(1) TransmitStringLn("BAD DMA START");
     }
 
-	HAL_Delay(1);
+	Sig_Gen_Enable();
+
+	HAL_Delay(10 * 1000 / 100); // 10 periods of the lowest freq
 
 	Sampling_Enable();
-	Sig_Gen_Enable();
 
 
     uint32_t timeout = 1000 * ADC_BUFFER_SIZE / Get_Sampling_Frequency() + HAL_GetTick();
@@ -188,7 +187,6 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref)
 
 	for(size_t i = 0; i < NFREQUENCIES; i++)
 	{
-
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies[i], &inputs[i], &outputs[i]);
 	}
 }
@@ -221,6 +219,8 @@ void Measurement_Routine_Voltage(phasor_t output[], phasor_t Zsm_buff[], phasor_
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
 	phasor_t v1[NFREQUENCIES];
+
+	Set_Sampling_Frequency(1e6);
 
 	for(size_t i = 0; i < NFREQUENCIES; i++)
 	{

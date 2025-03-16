@@ -219,7 +219,7 @@ int main(void)
   for(size_t i = 0; i < NFREQUENCIES; i++)
   {
 	  SC_CAL[i] = (phasor_t) {0,0};
-	  OC_CAL[i] = (phasor_t) {0,0};
+	  OC_CAL[i] = (phasor_t) {1e32,0};
 	  phasorZero[i] = (phasor_t) {0,0};
   }
 
@@ -966,11 +966,13 @@ HAL_StatusTypeDef TransmitPhasorBufferUI(uint32_t freqs[], phasor_t phasors[])
 	char msg[32 + 6 + 2 + 2 + 2 + 2*(6+2)];
 	// message len + 6 freq digits + 2 brackets + 2 commas + 2 delimiter flags + 2 doubles + padding extra
 	TransmitStringRaw("Sending Phasor DataFrame (please work) $[");
-	for(size_t i = 0; i < NFREQUENCIES; i++)
+	for(size_t i = 0; i < NFREQUENCIES-1; i++)
 	{
-		sprintf(msg, "%lu,%.6f,%.6f", freqs[i], phasors[i].magnitude, phasors[i].phaserad);
+		sprintf(msg, "%lu,%.6f,%.6f,", freqs[i], phasors[i].magnitude, phasors[i].phaserad);
 		TransmitStringRaw(msg);
 	}
+	sprintf(msg, "%lu,%.6f,%.6f", freqs[NFREQUENCIES - 1], phasors[NFREQUENCIES - 1].magnitude, phasors[NFREQUENCIES - 1].phaserad);
+	TransmitStringRaw(msg);
 	return TransmitStringRaw("]#");
 }
 
@@ -984,7 +986,7 @@ HAL_StatusTypeDef TransmitPhasorDataframeUI(uint32_t freqs[], phasor_t phasors[]
 		TransmitStringRaw("There was a NAN in there");
 	}
 	char msg[32 + 6 + 2 + 2 + 2 + 2*(6+2) + 50];
-	sprintf(msg, "Sending Phasor DataFrame (please work) bla bla\n$[%lu,%.6f,%.6f]#", freqs[0], phasors[0].magnitude, phasors[0].phaserad);
+	sprintf(msg, "Sending Phasor DataFrame (please work) bla\n$[");
 	TransmitStringRaw(msg);
 	for(size_t i = 0; i < NFREQUENCIES-1; i++)
 	{
@@ -1121,7 +1123,8 @@ void Process_Command(ui_command_t command_received)
 	{
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-		Measurement_Routine_Zx(Zx_measured, SC_CAL, OC_CAL, current_resistor, frequencies_visited);
+//		Measurement_Routine_Zx(Zx_measured, SC_CAL, OC_CAL, current_resistor, frequencies_visited);
+		Measurement_Routine_Voltage(Zx_measured, phasorZero, OC_CAL, current_resistor, frequencies_visited);
 
 		TransmitPhasorDataframeUI(frequencies_visited, Zx_measured, current_resistor);
 
