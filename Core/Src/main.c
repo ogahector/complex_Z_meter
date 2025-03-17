@@ -265,6 +265,7 @@ int main(void)
 #ifdef BOARD_DEBUG_MODE
 	  if(buttonPress())
 	  {
+		  Set_Signal_Frequency(100000);
 		  Sig_Gen_Enable();
 	  }
 //	  else
@@ -377,7 +378,7 @@ static void MX_ADC1_Init(void)
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = ENABLE;
+  hadc1.Init.ScanConvMode = DISABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
@@ -499,7 +500,7 @@ static void MX_ADC3_Init(void)
   hadc3.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc3.Init.NbrOfConversion = 1;
   hadc3.Init.DMAContinuousRequests = DISABLE;
-  hadc3.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc3.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   if (HAL_ADC_Init(&hadc3) != HAL_OK)
   {
     Error_Handler();
@@ -986,16 +987,16 @@ HAL_StatusTypeDef TransmitPhasorDataframeUI(uint32_t freqs[], phasor_t phasors[]
 		TransmitStringRaw("There was a NAN in there");
 	}
 	char msg[32 + 6 + 2 + 2 + 2 + 2*(6+2) + 50];
-	sprintf(msg, "Sending Phasor DataFrame (please work) bla\n$[");
+	sprintf(msg, "Sending Phasor DataFrame (please work) bla\n$[69,420,0");
 	TransmitStringRaw(msg);
 	for(size_t i = 0; i < NFREQUENCIES-1; i++)
 	{
 		char msg[32 + 6 + 2 + 2 + 2 + 2*(6+2)];
-		sprintf(msg, "%lu,%.6f,%.6f,", freqs[i], phasors[i].magnitude, phasors[i].phaserad);
+		sprintf(msg, "%lu,%.4f,%.4f,", freqs[i], phasors[i].magnitude, phasors[i].phaserad);
 		TransmitStringRaw(msg);
 	}
 //	char msg[32 + 6 + 2 + 2 + 2 + 2*(6+2)];
-	sprintf(msg, "%lu,%.6f,%.6f", freqs[NFREQUENCIES - 1], phasors[NFREQUENCIES - 1].magnitude, phasors[NFREQUENCIES - 1].phaserad);
+	sprintf(msg, "%lu,%.4f,%.4f", freqs[NFREQUENCIES - 1], phasors[NFREQUENCIES - 1].magnitude, phasors[NFREQUENCIES - 1].phaserad);
 	TransmitStringRaw(msg);
 	return TransmitStringRaw("]#");
 }
@@ -1096,7 +1097,7 @@ void Process_Command(ui_command_t command_received)
 		current_resistor = RESISTOR0;
 		Choose_Switching_Resistor(current_resistor);
 
-		Measurement_Routine_Zx(SC_CAL, phasorZero, phasorZero, current_resistor, frequencies_visited);
+		Measurement_Routine_Zx_Calibrated(SC_CAL, phasorZero, phasorZero, current_resistor, frequencies_visited);
 
 //		TransmitPhasorDataframeUI(frequencies_visited, SC_CAL, current_resistor); // ? idk if needed
 
@@ -1111,7 +1112,7 @@ void Process_Command(ui_command_t command_received)
 		current_resistor = RESISTOR3;
 		Choose_Switching_Resistor(current_resistor);
 
-		Measurement_Routine_Zx(OC_CAL, phasorZero, phasorZero, current_resistor, frequencies_visited);
+		Measurement_Routine_Zx_Calibrated(OC_CAL, phasorZero, phasorZero, current_resistor, frequencies_visited);
 
 //		TransmitPhasorDataframeUI(frequencies_visited, OC_CAL, current_resistor);
 
@@ -1124,7 +1125,7 @@ void Process_Command(ui_command_t command_received)
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
 //		Measurement_Routine_Zx(Zx_measured, SC_CAL, OC_CAL, current_resistor, frequencies_visited);
-		Measurement_Routine_Voltage(Zx_measured, phasorZero, OC_CAL, current_resistor, frequencies_visited);
+		Measurement_Routine_Voltage(Zx_measured, current_resistor, frequencies_visited);
 
 		TransmitPhasorDataframeUI(frequencies_visited, Zx_measured, current_resistor);
 

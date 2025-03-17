@@ -192,7 +192,7 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref)
 }
 
 
-void Measurement_Routine_Zx(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[])
+void Measurement_Routine_Zx_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
 	Choose_Switching_Resistor(Rref);
 	uint32_t frequencies_wanted[NFREQUENCIES];
@@ -212,7 +212,27 @@ void Measurement_Routine_Zx(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zo
 	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 }
 
-void Measurement_Routine_Voltage(phasor_t output[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[])
+void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[])
+{
+	Choose_Switching_Resistor(Rref);
+	uint32_t frequencies_wanted[NFREQUENCIES];
+	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
+
+	Set_Sampling_Frequency(500000);
+
+	phasor_t v1[NFREQUENCIES];
+	phasor_t v2[NFREQUENCIES];
+
+	for(size_t i = 0; i < NFREQUENCIES; i++)
+	{
+		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &v2[i]);
+		Zx_buff[i] = Calculate_Zx_Raw(v1[i], v2[i], Rref);
+		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	}
+	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+}
+
+void Measurement_Routine_Voltage(phasor_t output[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
 	Choose_Switching_Resistor(Rref);
 	uint32_t frequencies_wanted[NFREQUENCIES];
@@ -273,8 +293,16 @@ phasor_t Get_Phasor_2Sig(uint16_t sig[], uint16_t ref[], size_t lensig, size_t l
 {
 	// Think about optimising this bc this calculates
 	// the ref_cos and ref_sin twice
-	phasor_t input = Get_Phasor_1Sig(ref, lenref, f0, fs);
-	phasor_t output = Get_Phasor_1Sig(sig, lensig, f0, fs);
+
+	// will now procede to filter!
+	uint16_t sig_filtered[lensig];
+	uint16_t ref_filtered[lenref];
+
+	Moving_Average_Filter(sig, sig_filtered, lensig, (uint32_t) (f0 / sqrt(2)));
+	Moving_Average_Filter(ref, ref_filtered, lenref, (uint32_t) (f0 / sqrt(2)));
+
+	phasor_t input = Get_Phasor_1Sig(ref_filtered, lenref, f0, fs);
+	phasor_t output = Get_Phasor_1Sig(sig_filtered, lensig, f0, fs);
 
 //	if(input.magnitude == 0)
 //	{
@@ -348,4 +376,30 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t 
 	};
 }
 
+// Applies a moving average filter to the input data.
+// input: array of input samples.
+// output: array where the filtered data will be stored (should be the same length as input).
+// n: number of samples in the dataset.
+// window_size: number of samples to include in the average.
+void Moving_Average_Filter(const uint16_t *input, uint16_t *output, size_t size, uint32_t fc)
+{
+    double sum = 0.0f;
+    int i;
+    size_t window_size = (size_t) ( (double) (Get_Sampling_Frequency() / (2 * M_PI * fc)) );
 
+    // For the first few samples, where we don't have a full window yet,
+    // compute the average over the available samples.
+    for (i = 0; i < window_size && i < size; i++)
+    {
+        sum += input[i];
+        output[i] = sum / (i + 1);
+    }
+
+    // For the rest, use a running sum to compute the moving average.
+    for (i = window_size; i < size; i++)
+    {
+        // Add new sample and subtract the sample leaving the window.
+        sum += input[i] - input[i - window_size];
+        output[i] = sum / window_size;
+    }
+}

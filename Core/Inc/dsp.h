@@ -134,8 +134,12 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref);
  * @param Rref: The reference resistance value.
  * @param frequencies_visited: Array to store the frequencies at which measurements were made.
  */
-void Measurement_Routine_Zx(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
+void Measurement_Routine_Zx_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
 
-void Measurement_Routine_Voltage(phasor_t output[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
+void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
+
+void Measurement_Routine_Voltage(phasor_t output[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
+
+void Moving_Average_Filter(const uint16_t *input, uint16_t *output, size_t size, uint32_t fc);
 
 #endif /* SRC_DSP_H_ */
