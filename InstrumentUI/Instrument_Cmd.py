@@ -339,7 +339,7 @@ class DebugCommand(object):
                     raise TimeoutError
 
         # - Decode returned data
-        # print(rdata_all)
+        print(rdata_all)
         try:
             if rdata_all[1]!= "[":
                 data = int(rdata_all[1:-1]) if rdata_all!='$#' else None

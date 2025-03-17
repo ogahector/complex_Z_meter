@@ -12,23 +12,21 @@
 #include "main.h"
 #include "relay.h"
 
-#define ADC_SAMPLES_PER_CHANNEL (5000) // 3k or 2k would be better ngl
-
-#ifdef ADC_DAC_DEBUG_MODE
-#define ADC_BUFFER_SIZE (2*2)
-#else
-#define ADC_BUFFER_SIZE (2*ADC_SAMPLES_PER_CHANNEL)
-#endif
-
-//#define ADC_BUFFER_SIZE 4
+//#define ADC_SAMPLES_PER_CHANNEL (5000) // 3k or 2k would be better ngl
+//#define ADC_BUFFER_SIZE (3*ADC_SAMPLES_PER_CHANNEL)
+#define ADC_BUFFER_SIZE 8000
 #define F_SAMPLE_TIMER (2 * HAL_RCC_GetPCLK1Freq())
 #define NCONVERSIONCYCLES 45
 //#define ADC_BUFFER_SIZE 3
 
 extern ADC_HandleTypeDef hadc1;
+extern ADC_HandleTypeDef hadc2;
+extern ADC_HandleTypeDef hadc3;
 extern DMA_HandleTypeDef hdma_adc1;
 extern TIM_HandleTypeDef htim2;
-extern uint16_t vmeas_buffer[ADC_BUFFER_SIZE];
+extern uint16_t vmeas_buffer1[ADC_BUFFER_SIZE];
+extern uint16_t vmeas_buffer2[ADC_BUFFER_SIZE];
+extern uint16_t vmeas_buffer3[ADC_BUFFER_SIZE];
 
 typedef struct __phasor_t {
     double magnitude;
@@ -136,10 +134,12 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref);
  * @param Rref: The reference resistance value.
  * @param frequencies_visited: Array to store the frequencies at which measurements were made.
  */
-void Measurement_Routine_Zx(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
+void Measurement_Routine_Zx_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
 
-void Measurement_Routine_Voltage(phasor_t output[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
+void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
 
-double wrap2_2pi(double phase);
+void Measurement_Routine_Voltage(phasor_t output[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
+
+void Moving_Average_Filter(const uint16_t *input, uint16_t *output, size_t size, uint32_t fc);
 
 #endif /* SRC_DSP_H_ */
