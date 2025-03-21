@@ -14,9 +14,11 @@ void Calculate_Sine_Wave(uint16_t buffer[], int size)
 {
     for (size_t i = 0; i < size; i++) {
         double sinangle = sin((2.0f * M_PI * i) / size); // Convert index to angle (radians)
-        double scaled = 2047*sinangle;
+        double scaled = (2047)*sinangle;
         buffer[i] = (uint16_t) ((int) (scaled + 2048)); // Scale to 0-4095
     }
+
+    HAL_GetTick();
 }
 
 void Fill_Sine_Buffer()

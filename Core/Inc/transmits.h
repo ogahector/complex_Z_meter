@@ -96,6 +96,7 @@ HAL_StatusTypeDef TransmitUint32UI(char msg[], uint32_t num);
 HAL_StatusTypeDef ReceiveMessage(char msg[], size_t len);
 HAL_StatusTypeDef TransmitString(char msg[]);
 HAL_StatusTypeDef TransmitStringRaw(char msg[]);
+HAL_StatusTypeDef TransmitStringRaw_IT(char msg[]);
 HAL_StatusTypeDef TransmitStringLn(char msg[]);
 HAL_StatusTypeDef TransmitIntBuffer(int buffer[], size_t size);
 HAL_StatusTypeDef TransmitUInt32Buffer(uint32_t buffer[], size_t size);

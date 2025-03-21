@@ -10,6 +10,7 @@ import serial.tools.list_ports
 import time
 import struct
 import numpy as np
+import ast
 
 # ----------------------------------------------------------------
 # User-defined Commands
@@ -207,163 +208,170 @@ class DebugCommand(object):
             return None
         return func, par1, par2
 
-    # Execute command
+        # Execute command
     def execute_cmd(self, input_command):
+        import time, ast, struct
+
+        # Decode the command; if invalid, return immediately.
         cmd_decoded = self.decode_cmd(input_command)
         if cmd_decoded is None:
             return None
         else:
             (func, par1, par2) = cmd_decoded
 
-        print(f'sending command {input_command}: {cmd_decoded}')
+        print(f'Sending command {input_command}: {cmd_decoded}')
 
-        # System command
-        if (func >> 8)&0x0F == 0x0F:
-            if func==0x0F00:
+        # ------------------------------
+        # Handle UI/System Commands (for example, quitting, listing ports, etc.)
+        # ------------------------------
+        if (func >> 8) & 0x0F == 0x0F:
+            if func == 0x0F00:
                 if self.console_s is None:
-                    cmd = input("Are you sure to quit ? y/n: ")
-                    if cmd.lower()== 'y':
+                    cmd = input("Are you sure to quit? y/n: ")
+                    if cmd.lower() == 'y':
                         quit(0)
                 else:
                     self.print("S: Invalid cmd for UI\n")
-            if func==0x0F01:
-                for (index, command) in enumerate(command_list):
-                    self.print(('[%-2d] ' % index) + command + '\n')
-            if func==0x0F10:
+            elif func == 0x0F01:
+                for index, command in enumerate(command_list):
+                    self.print(f"[{index:2d}] " + command + '\n')
+            elif func == 0x0F10:
                 self.list_serial(show=True)
-            if func==0x0F11:
+            elif func == 0x0F11:
                 self.close_serial()
-            if func==0x1F12:
+            elif func == 0x1F12:
                 self.open_serial('COM' + str(par1))
             return None
 
-        # MCU Command
-        # - Check connectivity
+        # ------------------------------
+        # For MCU commands: Ensure the serial port is connected
+        # ------------------------------
         if not self.serial_connected:
-            self.print('S: Serial port not connected\n')    # ? Serial not connected
+            self.print('S: Serial port not connected\n')
             self.error('Serial port not connected\n')
-            raise SystemError
+            raise SystemError("Serial port not connected")
 
-        # - Encode to binary
+        # Pack the command into a binary packet (2 bytes each, big-endian)
         cmd_send = struct.pack(">H", func)
-        cmd_send = cmd_send + struct.pack(">H", par1 if par1 is not None else 0x00)
-        cmd_send = cmd_send + struct.pack(">H", par2 if par2 is not None else 0x00)
+        cmd_send += struct.pack(">H", par1 if par1 is not None else 0x00)
+        cmd_send += struct.pack(">H", par2 if par2 is not None else 0x00)
 
-        # ----------------------------------------------------------------
-        # Entre critical region (Mutual Exclusion)
-        # - Wait until serial is ready
+        # ------------------------------
+        # Enter Critical Region (wait for serial_ready flag)
+        # ------------------------------
         while not self.serial_ready:
             pass
         self.serial_ready = False
         self.status(True)
-        # ----------------------------------------------------------------
-        # - Clear buffer
-        self.clear()
-        
-        # - Send encoded command to MCU
+        self.clear()  # Clear serial buffer before sending
+
+        # Send the command to the MCU
         try:
-            cmd_send = cmd_send
             self.serial_obj.write(cmd_send)
-            print(f'sent command: {cmd_send}')
-        except:
-            self.error("Serial: Write Command Failed")    # ? Cable unplugged after opening the serial
+            print(f'Sent command: {cmd_send}')
+        except Exception as e:
+            self.error("Serial: Write Command Failed")
             self.status(False)
             self.serial_ready = True
-            raise SystemError
+            raise SystemError("Write failed") from e
 
-        # Read Response v1...Not efficient...
-        rdata_all = ''
+        # ------------------------------
+        # Read the Response according to the Protocol:
+        # The MCU sends:
+        #   [Message Text] + '$' + [Numeric Data (may be sent in batches)] + '#'
+        # ------------------------------
+
+        # First, receive the text message (until the '$' delimiter)
+        received_message = ''
         timeout_cnt = 0
-        # - Check if end of message else dynamically print
-        while True:
+        while '$' not in received_message:
             try:
-                # - Check if data available
-                num_bytes = self.serial_obj.inWaiting()
-                if num_bytes!=0:
-                    timeout_cnt = 0
-                    # - Read a number of bytes
-                    rdata = self.serial_obj.read(num_bytes)
-                    # - Decode as utf-8
-                    rdata = str(rdata, encoding = 'utf-8')
-                    # - Append characters
-                    rdata_all = rdata_all + rdata
-                    # - Check if end flag
-                    if rdata_all.find("$")!=-1:
-                        break
-                    else:
-                        self.print(rdata_all)
-                        rdata_all = ''
+                if self.serial_obj.inWaiting() > 0:
+                    rdata = self.serial_obj.read(self.serial_obj.inWaiting())
+                    rdata = rdata.decode('utf-8')
+                    received_message += rdata
+                else:
+                    time.sleep(0.001)
+                    timeout_cnt += 1
+                    if timeout_cnt >= self.serial_timeout:
+                        self.error('Serial: Timeout waiting for message part')
+                        self.status(False)
+                        self.serial_ready = True
+                        raise TimeoutError("Timeout waiting for message part")
             except Exception as e:
                 print(str(e))
                 self.error("Serial: Read Message Failed")
                 self.status(False)
                 self.serial_ready = True
-                raise RuntimeError 
-            # - Check if timeout
-            else:
-                timeout_cnt = timeout_cnt + 1
-                if timeout_cnt==self.serial_timeout:
-                    self.error('Serial: Timeout')
-                    self.status(False)
-                    self.serial_ready = True
-                    raise TimeoutError
+                raise RuntimeError("Error reading message part") from e
 
-        # - Print remaining messages
-        endflag = rdata_all.find("$")
-        if rdata_all[: endflag]!= '':
-            self.print(rdata_all[ : endflag])
-        rdata_all = rdata_all[endflag : ]
+        # Separate the message part from the data part
+        msg_end_index = received_message.find('$')
+        message_part = received_message[:msg_end_index]
+        if message_part:
+            self.print(message_part + '\n')  # Print the initial message
+        # The rest (after '$') starts the numeric data, which may be partial
+        data_part_accum = received_message[msg_end_index + 1:]
 
-        # - Check if end of transmission
+        # Next, read numeric data in batches until the end-of-data indicator '#' is received
         timeout_cnt = 0
-        while rdata_all[-1]!= "#":
+        while '#' not in data_part_accum:
             try:
-                num_bytes = self.serial_obj.inWaiting()
-                if num_bytes!=0:
-                    timeout_cnt = 0
-                    rdata = self.serial_obj.read(num_bytes)
-                    rdata = str(rdata, encoding = 'utf-8')
-                    rdata_all = rdata_all + rdata
+                if self.serial_obj.inWaiting() > 0:
+                    rdata = self.serial_obj.read(self.serial_obj.inWaiting())
+                    rdata = rdata.decode('utf-8')
+                    data_part_accum += rdata
+                else:
+                    time.sleep(0.001)
+                    timeout_cnt += 1
+                    if timeout_cnt >= self.serial_timeout:
+                        self.error('Serial: Timeout waiting for data part')
+                        self.status(False)
+                        self.serial_ready = True
+                        raise TimeoutError("Timeout waiting for data part")
             except Exception as e:
                 print(str(e))
-                self.error("Serial: Read Message Failed")
+                self.error("Serial: Read Data Failed")
                 self.status(False)
                 self.serial_ready = True
-                raise RuntimeError
-            else:
-                timeout_cnt = timeout_cnt + 1
-                if timeout_cnt==self.serial_timeout:
-                    self.error("Serial: Timeout")   # ? No end flag '#' in firmware
-                    self.status(False)
-                    self.serial_ready = True
-                    raise TimeoutError
+                raise RuntimeError("Error reading data part") from e
 
-        # - Decode returned data
-        print(rdata_all)
+        # Extract the numeric data string up to the '#' marker
+        data_end_index = data_part_accum.find('#')
+        numeric_data_str = data_part_accum[:data_end_index]
+        print(f"Numeric data received: {numeric_data_str}")
+
+        # ------------------------------
+        # Decode the Numeric Data
+        # It may be a single integer (e.g., "666") or multiple values (e.g., "1,2,3" or "[1,2,3]")
+        # ------------------------------
         try:
-            if rdata_all[1]!= "[":
-                data = int(rdata_all[1:-1]) if rdata_all!='$#' else None
-                print(f'data: {data}')
+            cleaned = numeric_data_str.strip()
+            if not cleaned:
+                data = None
+            elif cleaned.startswith('['):
+                # If it's bracketed, safely evaluate the list.
+                data = ast.literal_eval(cleaned)
+            elif ',' in cleaned:
+                # If there are commas, split and convert to integers.
+                data = [int(x) for x in cleaned.split(',') if x.strip() != '']
             else:
-                # "[1,2,3]" -> [1,2,3]
-                data_dict = {'dataList': []}
-                exec('dataList=%s' % rdata_all[1:-1],  data_dict)
-                # exec('dataList=%s' % rdata_all[1:-1])
-                # data_dict['dataList'] = dataList
-                data = data_dict['dataList']
-                print(f'data: {data}')
-        except:
+                # Otherwise, treat it as a single integer.
+                data = int(cleaned)
+            print(f"Decoded data: {data}")
+        except Exception as e:
             self.error('Serial: Decoding Failed')
-            print(f'rdata_all: {rdata_all}')
-            print(f'data_all size: {np.size(rdata_all)}')
-            raise SystemError
+            print(f"Numeric data string: {numeric_data_str}")
+            raise SystemError("Decoding failed") from e
 
-        # ----------------------------------------------------------------
-        # Leave critical region
+        # ------------------------------
+        # Leave the Critical Region and Return the Parsed Data
+        # ------------------------------
         self.status(False)
         self.serial_ready = True
-        # ----------------------------------------------------------------
         return data
+
+
 
 if __name__ == "__main__":
     mcu_debug = DebugCommand()

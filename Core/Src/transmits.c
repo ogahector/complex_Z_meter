@@ -69,8 +69,7 @@ HAL_StatusTypeDef TransmitString(char msg[])
 
 HAL_StatusTypeDef TransmitStringRaw(char msg[])
 {
-	return HAL_UART_Transmit(&huart2, msg, (uint16_t) strlen(msg), HAL_MAX_DELAY);
-//	return HAL_UART_Transmit(&huart2, msg, (uint16_t) strlen(msg), 3);
+	return HAL_UART_Transmit(&huart2, (const char *) msg, (uint16_t) strlen(msg), HAL_MAX_DELAY);
 }
 
 HAL_StatusTypeDef TransmitStringLn(char msg[])
@@ -230,3 +229,5 @@ HAL_StatusTypeDef TransmitNumLn(float num)
 	sprintf(msg, "%f\r\n", num);
 	return TransmitString(msg);
 }
+
+

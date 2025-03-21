@@ -103,17 +103,17 @@ def iterative_fit(model_func, freqs, data, initial_guess, bounds, tol=1e-6, max_
 # Main Analysis: Compare Series and Parallel Models with Iterative Fitting.
 # =============================================================================
 
-def main(measurement_dict):
+def main(measurement_dict, freqlog=False):
     # Prepare measured data.
     freqs, Z_measured, data = prepare_data_real_imag(measurement_dict)
     
     # --- Initial Guess ---
     # Use the median of the real part as a rough estimate for R.
     R0 = np.median(np.real(Z_measured))
-    L0 = 1e-5  # Initial guess for L (Henries)
+    L0 = 1e-9  # Initial guess for L (Henries)
     C0 = 1e-12  # Initial guess for C (Farads)
     initial_guess = [R0, L0, C0]
-    bounds = (0, np.inf)  # Only positive values.
+    bounds = (-np.inf, np.inf)  # Only positive values.
     
     # --- Iterative Fit for Series Model ---
     try:
@@ -148,12 +148,15 @@ def main(measurement_dict):
         model_fit_func = parallel_model_fit
     
     # --- Display Results ---
-    print("Best equivalent circuit model:", best_model)
-    print("Fitted parameters (with 1-sigma error estimates):")
-    print(f"R = {best_popt[0]:.3e} ± {best_perr[0]:.3e} Ohm")
-    print(f"L = {best_popt[1]:.3e} ± {best_perr[1]:.3e} H")
-    print(f"C = {best_popt[2]:.3e} ± {best_perr[2]:.3e} F")
-    print(f"Sum of squared residuals: {best_ssq:.3e}")
+    try:
+        print("Best equivalent circuit model:", best_model)
+        print("Fitted parameters (with 1-sigma error estimates):")
+        print(f"R = {best_popt[0]:.3e} ± {best_perr[0]:.3e} Ohm")
+        print(f"L = {best_popt[1]:.3e} ± {best_perr[1]:.3e} H")
+        print(f"C = {best_popt[2]:.3e} ± {best_perr[2]:.3e} F")
+        print(f"Sum of squared residuals: {best_ssq:.3e}")
+    except Exception as e:
+        print(f'Exception {e}: {best_popt}')
     
     # --- Plotting: Compare Measured Data with the Fitted Model ---
     freq_dense = np.linspace(min(freqs), max(freqs), 1000)
@@ -163,8 +166,12 @@ def main(measurement_dict):
     
     # Plot the Real parts.
     plt.subplot(2, 1, 1)
-    plt.plot(freqs, np.real(Z_measured), 'o', label='Measured (Real)')
-    plt.plot(freq_dense, np.real(Z_model_dense), '-', label='Fitted Model (Real)')
+    if freqlog:
+        plt.semilogx(freqs, np.real(Z_measured), 'o', label='Measured (Real)')
+        plt.semilogx(freq_dense, np.real(Z_model_dense), '-', label='Fitted Model (Real)')
+    else:
+        plt.plot(freqs, np.real(Z_measured), 'o', label='Measured (Real)')
+        plt.plot(freq_dense, np.real(Z_model_dense), '-', label='Fitted Model (Real)')
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Real Impedance (Ohm)')
     plt.legend()
@@ -172,8 +179,12 @@ def main(measurement_dict):
     
     # Plot the Imaginary parts.
     plt.subplot(2, 1, 2)
-    plt.plot(freqs, np.imag(Z_measured), 'o', label='Measured (Imaginary)')
-    plt.plot(freq_dense, np.imag(Z_model_dense), '-', label='Fitted Model (Imaginary)')
+    if freqlog:
+        plt.semilogx(freqs, np.imag(Z_measured), 'o', label='Measured (Imaginary)')
+        plt.semilogx(freq_dense, np.imag(Z_model_dense), '-', label='Fitted Model (Imaginary)')
+    else:
+        plt.plot(freqs, np.imag(Z_measured), 'o', label='Measured (Imaginary)')
+        plt.plot(freq_dense, np.imag(Z_model_dense), '-', label='Fitted Model (Imaginary)')
     plt.xlabel('Frequency (Hz)')
     plt.ylabel('Imaginary Impedance (Ohm)')
     plt.legend()
@@ -191,16 +202,32 @@ if __name__ == "__main__":
     true_L = 1e-3     # Henries
     true_C = 1e-6     # Farads
 
-    # Generate frequencies from 1 kHz to 1 MHz.
-    freqs = np.linspace(1e3, 1e6, 50).astype(int)
-    measurement_dict = {}
+    # # Generate frequencies from 1 kHz to 1 MHz.
+    # freqs = np.linspace(1e2, 1e6, 50).astype(int)
+    # measurement_dict = {}
     
-    # Generate synthetic impedance data with some Gaussian noise.
-    for f in freqs:
-        omega = 2 * np.pi * f
-        Z = true_R + 1j * (omega * true_L - 1/(omega * true_C))
-        noise = (np.random.normal(scale=0.05 * true_R) +
-                 1j * np.random.normal(scale=0.05 * true_R))
-        measurement_dict[f] = Z + noise
+    # # Generate synthetic impedance data with some Gaussian noise.
+    # for f in freqs:
+    #     omega = 2 * np.pi * f
+    #     Z = true_R + 1j * (omega * true_L - 1/(omega * true_C))
+    #     noise = np.abs(np.random.normal(scale=0.20))
+    #     measurement_dict[f] = Z * (1 + noise)
 
-    main(measurement_dict)
+    data = [100, 2508.7, 1.2144, 126, 1260.2, 6.1414, 158, 1181.9, 5.917, 200, 852.24, 0.21708, 251, 910.45, 6.17, 316, 1055.4, 6.0608, 398, 968.85, 6.113, 501, 932.18, 0.034196, 631, 927.37, 0.052376, 794, 966.38, 0.044535, 1000, 979.91, 0.02937, 1259, 1026.2, 0.0082968, 1587, 964.5, 6.2536, 2000, 1009.3, 6.262, 2512, 1004.5, 6.2329, 3164, 1000.7, 6.2095, 4000, 991.85, 6.1789, 5050, 1002.6, 6.1632, 6329, 998.1, 6.1355, 8064, 992.91, 6.0915, 10000, 1000.2, 6.0486, 12820, 990.97, 5.9847, 16129, 983.51, 5.9104, 20000, 981.18, 5.8179, 26315, 962.25, 5.6729, 33333, 943.69, 5.5179, 41666, 915.75, 5.3349, 55555, 863.16, 5.0423, 71428, 800.2, 4.7151, 83333, 752.93, 4.4887]
+    
+    freqs = []
+    mags = []
+    phases = []
+    for i in range(0, len(data)):
+        if i % 3 == 0:
+            freqs.append(data[i])
+        elif i % 3 == 1:
+            mags.append(data[i])
+        elif i % 3 == 2:
+            phases.append(data[i])
+
+    measurement_dict = {freqs[i]: mags[i] * np.exp(1j * phases[i]) for i in range(len(freqs))}
+    print(measurement_dict)
+
+
+    main(measurement_dict, freqlog=True)

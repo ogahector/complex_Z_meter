@@ -8,25 +8,30 @@
 #ifndef SRC_DSP_H_
 #define SRC_DSP_H_
 
+#include "sig_gen.h"
 #include <sampling.h>
 #include "main.h"
 #include "relay.h"
 
-//#define ADC_SAMPLES_PER_CHANNEL (5000) // 3k or 2k would be better ngl
-//#define ADC_BUFFER_SIZE (3*ADC_SAMPLES_PER_CHANNEL)
-#define ADC_BUFFER_SIZE 8000
+#define ADC_SAMPLES_PER_CHANNEL (10000)
+#define ADC_BUFFER_SIZE (2*ADC_SAMPLES_PER_CHANNEL)
+//#define ADC_BUFFER_SIZE 4
+
 #define F_SAMPLE_TIMER (2 * HAL_RCC_GetPCLK1Freq())
+#define F_SAMPLE 410000
+#define T_DELAY_SAMPLE ((15 + 15) / 22.5e6)
+
 #define NCONVERSIONCYCLES 45
-//#define ADC_BUFFER_SIZE 3
+//#define __USING_MOVING_AVERAGE
+#define __WRAP2_2PI
+#define __INCLUDE_CONV_PHASE
 
 extern ADC_HandleTypeDef hadc1;
-extern ADC_HandleTypeDef hadc2;
-extern ADC_HandleTypeDef hadc3;
 extern DMA_HandleTypeDef hdma_adc1;
 extern TIM_HandleTypeDef htim2;
-extern uint16_t vmeas_buffer1[ADC_BUFFER_SIZE];
-extern uint16_t vmeas_buffer2[ADC_BUFFER_SIZE];
-extern uint16_t vmeas_buffer3[ADC_BUFFER_SIZE];
+extern DAC_HandleTypeDef hdac;
+extern uint16_t sine_wave_buffer[DAC_LUT_SIZE];
+extern uint16_t vmeas_buffer[ADC_BUFFER_SIZE];
 
 typedef struct __phasor_t {
     double magnitude;
@@ -141,5 +146,7 @@ void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, u
 void Measurement_Routine_Voltage(phasor_t output[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
 
 void Moving_Average_Filter(const uint16_t *input, uint16_t *output, size_t size, uint32_t fc);
+
+double wrap2_2pi(double phase);
 
 #endif /* SRC_DSP_H_ */

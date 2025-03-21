@@ -9,6 +9,7 @@ import pydevd
 # --------------------------------------------------------------
 from math import *
 from Instrument_Func import *
+import rlc_fitting_re_im as rlc
 
 # --------------------------------------------------------------
 # System Import
@@ -217,6 +218,9 @@ class ReadoutMeasurement(QThread):
 
             # Add the received phasor to the list
             self.received_phasors = [ [frequencies[i], 20*np.log10(magnitudes[i]), (180/np.pi) * phases[i]] for i in range(len(phases)) ]
+
+            # v_phasors = np.array(magnitudes) * np.exp(1j * phases)
+            # z_phasors = 100 * v_phasors / (1 - v_phasors)
 
             # Update the plot with the new phasor
             self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors],

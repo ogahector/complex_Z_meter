@@ -11,93 +11,44 @@
 #include "string.h"
 #include "transmits.h"
 
-volatile uint8_t adcDmaTransferComplete1;
-volatile uint8_t adcDmaTransferComplete2;
-volatile uint8_t adcDmaTransferComplete3;
-volatile uint8_t adcDmaHalfTransfer1;
-volatile uint8_t adcDmaHalfTransfer2;
-volatile uint8_t adcDmaHalfTransfer3;
+volatile uint8_t adcDmaTransferComplete;
 uint16_t vmeas_buffer_copy[ADC_BUFFER_SIZE];
-//uint16_t vmeas0_copy[ADC_SAMPLES_PER_CHANNEL];
-//uint16_t vmeas1_copy[ADC_SAMPLES_PER_CHANNEL];
-//uint16_t vmeas2_copy[ADC_SAMPLES_PER_CHANNEL];
-
-void HAL_ADC_HalfConvCpltCallback(ADC_HandleTypeDef* hadc)
-{
-	if(hadc->Instance == ADC1)
-	{
-		adcDmaHalfTransfer1 = 1;
-	}
-	if(hadc->Instance == ADC2)
-	{
-		adcDmaHalfTransfer2 = 1;
-	}
-	if(hadc->Instance == ADC3)
-	{
-		adcDmaHalfTransfer3 = 1;
-	}
-}
 
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	if(hadc->Instance == ADC1)
 	{
-		adcDmaTransferComplete1 = 1;
-	}
-	if(hadc->Instance == ADC2)
-	{
-		adcDmaTransferComplete2 = 1;
-	}
-	if(hadc->Instance == ADC3)
-	{
-		adcDmaTransferComplete3 = 1;
+		adcDmaTransferComplete = 1;
 	}
 }
 
 void ADC_SampleSingleShot(void)
 {
 
-	adcDmaTransferComplete1 = 0;
-	adcDmaTransferComplete2 = 0;
-	adcDmaTransferComplete3 = 0;
-	adcDmaHalfTransfer1 = 0;
-	adcDmaHalfTransfer2 = 0;
-	adcDmaHalfTransfer3 = 0;
+	adcDmaTransferComplete = 0;
 
-    if (HAL_ADC_Start_DMA(&hadc1, (uint32_t *) vmeas_buffer1, ADC_BUFFER_SIZE) != HAL_OK)
-    {
-    	while(1) TransmitStringLn("BAD DMA START");
-    }
-
-    if (HAL_ADC_Start_DMA(&hadc2, (uint32_t *) vmeas_buffer2, ADC_BUFFER_SIZE) != HAL_OK)
-    {
-    	while(1) TransmitStringLn("BAD DMA START");
-    }
-
-    if (HAL_ADC_Start_DMA(&hadc3, (uint32_t *) vmeas_buffer3, ADC_BUFFER_SIZE) != HAL_OK)
+    if (HAL_ADC_Start_DMA(&hadc1, (uint32_t *) vmeas_buffer, ADC_BUFFER_SIZE) != HAL_OK)
     {
     	while(1) TransmitStringLn("BAD DMA START");
     }
 
 	Sig_Gen_Enable();
 
-	HAL_Delay(10 * 1000 / 100); // 10 periods of the lowest freq
+	HAL_Delay(10 * 1000 / Get_Signal_Frequency()); // 10 periods of the lowest freq
+//	HAL_Delay( 3 * 806 );
 
 	Sampling_Enable();
 
 
     uint32_t timeout = 1000 * ADC_BUFFER_SIZE / Get_Sampling_Frequency() + HAL_GetTick();
 
-    // Same trigger at same frequency => as soon as one of them is done, all of them are
-    // It's just that it's impossible to determine which one will be done first
-    // however, we can deterministically determine once one of them is, all of them will as well
-    // => as soon as one of them switches, we can end sampling
-    while(adcDmaTransferComplete1 == 0 && adcDmaTransferComplete2 == 0 && adcDmaTransferComplete3== 0)
+    while(adcDmaTransferComplete == 0)
     {
 //    	__WFI();
     	 // In case the interrupt is missed which ONLY happens at VHF anyways
     	// at VHF OR only when sending a massive chunk of data while sampling
+    	// amended: shouldnt happen now ;)
     	if(HAL_GetTick() > timeout)
     	{
     		break;
@@ -105,8 +56,30 @@ void ADC_SampleSingleShot(void)
     	// Wait BLOCKING to allow for full single shot DMA transfer
     }
 
+/*
+    Sig_Gen_Disable();
+    if(HAL_DAC_Stop_DMA(&hdac, DAC_CHANNEL_1) != HAL_OK)
+    {
+    	TransmitStringRaw("Unable to stop dac dma");
+    	Error_Handler();
+    }
+
+    Sig_Gen_Enable();
+    if(HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 2048) != HAL_OK)
+    {
+    	TransmitStringRaw("Unable to set dac dma val");
+    	Error_Handler();
+    }
+
+    Sig_Gen_Disable();
+    if(HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, sine_wave_buffer, DAC_LUT_SIZE, DAC_ALIGN_12B_R) != HAL_OK)
+    {
+    	TransmitStringRaw("Unable to start dma again :(");
+    	Error_Handler();
+    }
+*/
     // ideally should be an atomic load / store of atomic ints but oh wells
-//	memcpy(vmeas_buffer_copy, vmeas_buffer1, ADC_BUFFER_SIZE * sizeof(uint16_t));
+//	memcpy(vmeas_buffer_copy, vmeas_buffer, ADC_BUFFER_SIZE * sizeof(uint16_t));
 }
 
 
@@ -116,6 +89,7 @@ void ADC_Separate_Channels(uint16_t buffADC[], uint16_t buffA[], uint16_t buffB[
 	 * NOTE:
 	 * IRL the input order should be vmeas0, vmeas1
 	 * because of the way the ADC buffer fill is set up
+	 * Confirmed DO NOT TOUCH
 	 */
     for(size_t i = 0; i < ADC_BUFFER_SIZE; i++) {
         switch(i % 2) {
@@ -138,10 +112,7 @@ uint32_t Sample_Steady_State(uint32_t f0, uint16_t vmeas0[], uint16_t vmeas1[])
 
 	ADC_SampleSingleShot();
 
-	memcpy(vmeas0, vmeas_buffer1, ADC_BUFFER_SIZE * sizeof(uint16_t));
-	memcpy(vmeas1, vmeas_buffer2, ADC_BUFFER_SIZE * sizeof(uint16_t));
-	memcpy(vmeas2, vmeas_buffer3, ADC_BUFFER_SIZE * sizeof(uint16_t));
-//	ADC_Separate_Channels(vmeas_buffer_copy, vmeas2, vmeas1, vmeas0);
+	ADC_Separate_Channels(vmeas_buffer, vmeas0, vmeas1);
 
 	Sampling_Disable();
 	Sig_Gen_Disable();
@@ -151,16 +122,22 @@ uint32_t Sample_Steady_State(uint32_t f0, uint16_t vmeas0[], uint16_t vmeas1[])
 
 uint32_t Sample_Steady_State_Phasors(uint32_t f0, phasor_t* input, phasor_t* output)
 {
-	uint16_t vmeas0[ADC_BUFFER_SIZE];
-	uint16_t vmeas1[ADC_BUFFER_SIZE];
-	uint16_t vmeas2[ADC_BUFFER_SIZE];
-	uint32_t actualFreq = Sample_Steady_State(f0, vmeas0, vmeas1, vmeas2);
+	uint16_t vmeas0[ADC_SAMPLES_PER_CHANNEL];
+	uint16_t vmeas1[ADC_SAMPLES_PER_CHANNEL];
+	uint32_t actualFreq = Sample_Steady_State(f0, vmeas0, vmeas1);
 
 	*input = (phasor_t) {1, 0};
 //	*output = Get_Phasor_2Sig(vmeas1, vmeas2, ADC_SAMPLES_PER_CHANNEL, ADC_SAMPLES_PER_CHANNEL,
 //			Get_Signal_Frequency(), Get_Sampling_Frequency());
-	*output = Get_Phasor_2Sig(vmeas1, vmeas2, ADC_BUFFER_SIZE, ADC_BUFFER_SIZE,
+	*output = Get_Phasor_2Sig(vmeas1, vmeas0, ADC_SAMPLES_PER_CHANNEL, ADC_SAMPLES_PER_CHANNEL,
 			actualFreq, Get_Sampling_Frequency());
+
+//	 this should be very wrong
+//	*input = Get_Phasor_1Sig(vmeas0, ADC_SAMPLES_PER_CHANNEL, actualFreq, Get_Sampling_Frequency());
+//	*output = Get_Phasor_1Sig(vmeas1, ADC_SAMPLES_PER_CHANNEL, actualFreq, Get_Sampling_Frequency());
+//
+//	output->phaserad = output->phaserad - input->phaserad;
+//	input->phaserad = 0;
 
 	return actualFreq;
 }
@@ -177,7 +154,7 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref)
 
 	// 1e6 WORKS-ish - use 500k is better
 	// This may be the main bottleneck
-	Set_Sampling_Frequency(500000);
+	Set_Sampling_Frequency(F_SAMPLE);
 	// Initial sampling to give a baseline and fill the system caps
 	// This is a good fix! Verified in practice
 	ADC_SampleSingleShot();
@@ -195,18 +172,15 @@ void Measurement_Routine_Zx_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], 
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
-	Set_Sampling_Frequency(500000);
-
 	phasor_t v1[NFREQUENCIES];
 	phasor_t v2[NFREQUENCIES];
 
-	Set_Sampling_Frequency(1500000);
+	Set_Sampling_Frequency(F_SAMPLE);
 
 	for(size_t i = 0; i < NFREQUENCIES; i++)
 	{
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &v2[i]);
 		Zx_buff[i] = Calculate_Zx_Calibrated(v1[i], v2[i], Rref, Zsm_buff[i], Zom_buff[i]);
-		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 	}
 	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 }
@@ -217,7 +191,7 @@ void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, u
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
-	Set_Sampling_Frequency(500000);
+	Set_Sampling_Frequency(F_SAMPLE); // 1E6
 
 	phasor_t v1[NFREQUENCIES];
 	phasor_t v2[NFREQUENCIES];
@@ -226,7 +200,6 @@ void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, u
 	{
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &v2[i]);
 		Zx_buff[i] = Calculate_Zx_Raw(v1[i], v2[i], Rref);
-		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 	}
 	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 }
@@ -239,7 +212,7 @@ void Measurement_Routine_Voltage(phasor_t output[], switching_resistor_t Rref, u
 
 	phasor_t v1[NFREQUENCIES];
 
-	Set_Sampling_Frequency(1e6);
+	Set_Sampling_Frequency(F_SAMPLE);
 
 	for(size_t i = 0; i < NFREQUENCIES; i++)
 	{
@@ -284,7 +257,11 @@ phasor_t Get_Phasor_1Sig(uint16_t sig[], size_t len, uint32_t f0, uint32_t fs)
 
 	return (phasor_t) {
 		sqrt(I*I + Q*Q),
+#ifdef __WRAP2_2PI
 		wrap2_2pi( atan2(Q, I) )
+#else
+		atan2(Q, I)
+#endif
 	};
 }
 
@@ -294,15 +271,19 @@ phasor_t Get_Phasor_2Sig(uint16_t sig[], uint16_t ref[], size_t lensig, size_t l
 	// the ref_cos and ref_sin twice
 
 	// will now procede to filter!
+#ifdef __USING_MOVING_AVERAGE
 	uint16_t sig_filtered[lensig];
 	uint16_t ref_filtered[lenref];
 
-	Moving_Average_Filter(sig, sig_filtered, lensig, (uint32_t) (f0 / sqrt(2)));
-	Moving_Average_Filter(ref, ref_filtered, lenref, (uint32_t) (f0 / sqrt(2)));
+	Moving_Average_Filter(sig, sig_filtered, lensig, (uint32_t) (f0 * sqrt(2)));
+	Moving_Average_Filter(ref, ref_filtered, lenref, (uint32_t) (f0 * sqrt(2)));
 
 	phasor_t input = Get_Phasor_1Sig(ref_filtered, lenref, f0, fs);
 	phasor_t output = Get_Phasor_1Sig(sig_filtered, lensig, f0, fs);
-
+#else
+	phasor_t input = Get_Phasor_1Sig(ref, lenref, f0, fs);
+	phasor_t output = Get_Phasor_1Sig(sig, lensig, f0, fs);
+#endif
 //	if(input.magnitude == 0)
 //	{
 //		while(1) TransmitStringRaw("2-phasor NAN!!");
@@ -310,7 +291,11 @@ phasor_t Get_Phasor_2Sig(uint16_t sig[], uint16_t ref[], size_t lensig, size_t l
 
 	return (phasor_t) {
 		output.magnitude / input.magnitude,
+#ifdef __WRAP2_2PI
 		wrap2_2pi( output.phaserad - input.phaserad )
+#else
+		output.phaserad - input.phaserad
+#endif
 	};
 }
 
@@ -327,9 +312,25 @@ phasor_t phasor_sub(phasor_t x1, phasor_t x2)
         return (phasor_t){0.0, 0.0};
     }
 
+#ifdef __INCLUDE_CONV_PHASE
+    double conv_phase = 2*M_PI*Get_Signal_Frequency() * T_DELAY_SAMPLE;
+#endif
+
 	return (phasor_t) {
 		sqrt(vdiff_real*vdiff_real + vdiff_imag*vdiff_imag),
+#ifdef __WRAP2_2PI
+#ifdef __INCLUDE_CONV_PHASE
+		wrap2_2pi( atan2(vdiff_imag, vdiff_real) + conv_phase)
+#else
 		wrap2_2pi( atan2(vdiff_imag, vdiff_real) )
+#endif
+#else
+#ifdef __INCLUDE_CONV_PHASE
+		atan2(vdiff_imag, vdiff_real) + conv_phase
+#else
+		atan2(vdiff_imag, vdiff_real)
+#endif
+#endif
 	};
 }
 
@@ -337,9 +338,26 @@ phasor_t phasor_sub(phasor_t x1, phasor_t x2)
 phasor_t Calculate_Zx_Raw(phasor_t v1, phasor_t v2, switching_resistor_t Rref)
 {
 	phasor_t vdiff = phasor_sub(v1, v2);
+
+#ifdef __INCLUDE_CONV_PHASE
+    double conv_phase = 2*M_PI*Get_Signal_Frequency() * T_DELAY_SAMPLE;
+#endif
+
 	return (phasor_t) {
 		((double) (Rref/1000)) * v2.magnitude / vdiff.magnitude, // divide my 1000 bc its in mOhms!!
+#ifdef __WRAP2_2PI
+#ifdef __INCLUDE_CONV_PHASE
 	    wrap2_2pi( v2.phaserad - vdiff.phaserad)
+#else
+		wrap2_2pi( v2.phaserad - vdiff.phaserad)
+#endif
+#else
+#ifdef __INCLUDE_CONV_PHASE
+		v2.phaserad - vdiff.phaserad + conv_phase
+#else
+		v2.phaserad - vdiff.phaserad
+#endif
+#endif
 	};
 }
 
@@ -363,7 +381,19 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t 
 //	}
 	return (phasor_t) {
 		Z_temp1.magnitude * Z_temp2.magnitude / Z_temp3.magnitude,
+#ifdef __WRAP2_2PI
+#ifdef __INCLUDE_CONV_PHASE
 		wrap2_2pi( Z_temp1.phaserad + Z_temp2.phaserad - Z_temp3.phaserad )
+#else
+		wrap2_2pi( Z_temp1.phaserad + Z_temp2.phaserad - Z_temp3.phaserad )
+#endif
+#else
+#ifdef __INCLUDE_CONV_PHASE
+		Z_temp1.phaserad + Z_temp2.phaserad - Z_temp3.phaserad
+#else
+		Z_temp1.phaserad + Z_temp2.phaserad - Z_temp3.phaserad
+#endif
+#endif
 	};
 }
 
@@ -375,11 +405,22 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t 
 void Moving_Average_Filter(const uint16_t *input, uint16_t *output, size_t size, uint32_t fc)
 {
     double sum = 0.0f;
-    int i;
-    size_t window_size = (size_t) ( (double) (Get_Sampling_Frequency() / (2 * M_PI * fc)) );
+
+    double actual_window_size = ( (double) (Get_Sampling_Frequency() / (2 * M_PI * fc)) );
+//    double actual_window_size = ( (double) (fc / (2 * M_PI * Get_Sampling_Frequency())) );
+
+    if(actual_window_size <= 1)
+    {
+    	memcpy(output, input, size * sizeof(uint16_t));
+    	return;
+    }
+
+    size_t window_size = actual_window_size > 1 ? (size_t) (actual_window_size/1) : 1;
+
 
     // For the first few samples, where we don't have a full window yet,
     // compute the average over the available samples.
+    size_t i;
     for (i = 0; i < window_size && i < size; i++)
     {
         sum += input[i];
@@ -393,4 +434,15 @@ void Moving_Average_Filter(const uint16_t *input, uint16_t *output, size_t size,
         sum += input[i] - input[i - window_size];
         output[i] = sum / window_size;
     }
+}
+
+double wrap2_2pi(double phase)
+{
+    phase = fmod(phase, 2 * M_PI);
+
+    if (phase < 0) {
+        phase += 2 * M_PI;
+    }
+
+    return phase;
 }
