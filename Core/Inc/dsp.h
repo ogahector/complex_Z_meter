@@ -13,17 +13,17 @@
 #include "main.h"
 #include "relay.h"
 
-#define ADC_SAMPLES_PER_CHANNEL (10000)
+#define ADC_SAMPLES_PER_CHANNEL (5000)
 #define ADC_BUFFER_SIZE (2*ADC_SAMPLES_PER_CHANNEL)
 //#define ADC_BUFFER_SIZE 4
 
 #define F_SAMPLE_TIMER (2 * HAL_RCC_GetPCLK1Freq())
-#define F_SAMPLE 410000
+#define F_SAMPLE 400000
 #define T_DELAY_SAMPLE ((15 + 15) / 22.5e6)
 
 #define NCONVERSIONCYCLES 45
 //#define __USING_MOVING_AVERAGE
-#define __WRAP2_2PI
+//#define __WRAP2_2PI
 #define __INCLUDE_CONV_PHASE
 
 extern ADC_HandleTypeDef hadc1;

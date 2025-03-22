@@ -216,7 +216,7 @@ int main(void)
 	  phasorZero[i] = (phasor_t) {0,0};
   }
 
-  current_resistor = RESISTOR1;
+  current_resistor = RESISTOR0;
 
   HAL_UART_Receive_IT(&huart2, rx_buffer, RX_CMD_BYTE_NB);
 
@@ -1078,8 +1078,8 @@ void Process_Command(ui_command_t command_received)
 	{
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-//		Measurement_Routine_Zx_Calibrated(Zx_measured, SC_CAL, OC_CAL, current_resistor, frequencies_visited);
-		Measurement_Routine_Zx_Raw(Zx_measured, current_resistor, frequencies_visited);
+		Measurement_Routine_Zx_Calibrated(Zx_measured, SC_CAL, OC_CAL, current_resistor, frequencies_visited);
+//		Measurement_Routine_Zx_Raw(Zx_measured, current_resistor, frequencies_visited);
 //		Measurement_Routine_Voltage(Zx_measured, current_resistor, frequencies_visited);
 
 		TransmitPhasorDataframeUI(frequencies_visited, Zx_measured, current_resistor);
@@ -1088,8 +1088,9 @@ void Process_Command(ui_command_t command_received)
 		break;
 	}
 
-	case get_phasors:
+	case start_rlc_fit:
 	{
+		TransmitPhasorDataframeUI(frequencies_visited, Zx_measured, current_resistor);
 		break;
 	}
 

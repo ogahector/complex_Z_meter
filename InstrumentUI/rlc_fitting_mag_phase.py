@@ -105,7 +105,7 @@ def main(measurement_dict):
 
     # --- Initial Guesses ---
     # Use the median magnitude as an estimate for R.
-    R0 = np.median(np.abs(Z_measured))
+    R0 = np.median(np.real(Z_measured))
     L0 = 1e-6  # Initial guess for inductance (H)
     C0 = 1e-9  # Initial guess for capacitance (F)
     initial_guess = [R0, L0, C0]
@@ -200,5 +200,19 @@ if __name__ == "__main__":
                  1j * np.random.normal(scale=0.05 * true_R))
         measurement_dict[f] = Z + noise
 
+    data = [100, 3830.3, 0.63425, 126, 3145.5, 5.1053, 158, 1159.6, 5.8947, 200, 2097.0, 5.9274, 251, 866.14, 0.039018, 316, 1025.4, 0.25573, 398, 952.42, 6.1027, 501, 1078.1, 6.2502, 631, 1144.6, 6.1772, 794, 1147.0, 0.020207, 1000, 1019.0, 6.2234, 1259, 1076.6, 6.2507, 1587, 1041.7, 0.051835, 2000, 954.88, 0.031093, 2512, 970.64, 0.043148, 3164, 967.85, 0.027785, 4000, 1012.4, 0.031298, 5050, 976.94, 0.0086845, 6329, 1002.3, 0.010878, 8064, 999.9, 0.0088616, 10000, 1002.3, 0.00682, 12820, 1002.1, 0.021743, 16129, 1000.0, 0.033297, 20000, 995.4, 0.035552, 26315, 1001.3, 0.042906, 33333, 996.59, 0.057959, 41666, 1000.2, 0.072334, 55555, 997.77, 0.096274, 71428, 998.42, 0.11875, 83333, 1002.4, 0.13403]
+
+    freqs = []
+    mags = []
+    phases = []
+    for i in range(0, len(data)):
+        if i % 3 == 0:
+            freqs.append(data[i])
+        elif i % 3 == 1:
+            mags.append(data[i])
+        elif i % 3 == 2:
+            phases.append(data[i])
+
+    measurement_dict = {freqs[i]: mags[i] * np.exp(1j * phases[i]) for i in range(len(freqs))}
     # Run the analysis.
     main(measurement_dict)

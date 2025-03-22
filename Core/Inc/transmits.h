@@ -38,7 +38,7 @@ typedef enum __ui_command_t{
 	// STM32 Peripheral
 	// ----------------------------------------------------------------
 	readout_meas=                     0x0200,
-	get_phasors=                      0x0202,
+	start_rlc_fit=                    0x0202,
 	start_sc_calib=                   0x0203,
 	start_oc_calib=                   0x0204,
 	stop_sc_calib=                    0x0205,

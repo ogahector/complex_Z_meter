@@ -76,25 +76,38 @@ class ShortCalibration(QThread):
         self.serial_obj.serial_timeout = 10000000
         try:
             # Start the calibration loop
-            while self.run:
-                sc_phasors = self.serial_obj.execute_cmd("start_sc_calib")
+            sc_phasors = self.serial_obj.execute_cmd("start_sc_calib")
 
-                # Check if no phasor is returned
-                if sc_phasors[0] is None:
-                    print("No more phasors received. Saving data to file. Ending short circuit calibration.")
-                    # Save to binary file
-                    write_phasors_to_text_file(self.file_path + '\\%s_short_calibration.txt' % get_date_time(2),
-                                              self.received_phasors)
-                    self.stop()
-                    break  # Exit loop if no more phasors are received
+            # Check if no phasor is returned
+            if sc_phasors[0] is None:
+                print("No more phasors received. Saving data to file. Ending short circuit calibration.")
+                # Save to binary file
+                write_phasors_to_text_file(self.file_path + '\\%s_short_calibration.txt' % get_date_time(2),
+                                            self.received_phasors)
+                self.stop()
 
-                # Add the received phasor to the list
-                self.received_phasors.append(sc_phasors[0])
+            frequencies = []
+            magnitudes = []
+            phases = [] # convert to degs
+            for i in range(len(sc_phasors)):
+                if i % 3 == 0:
+                    frequencies.append(sc_phasors[i])
+                if i % 3 == 1:
+                    magnitudes.append(sc_phasors[i])
+                if i % 3 == 2:
+                    phases.append(sc_phasors[i])
 
-                # Update the plot with the new phasor
-                self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors], [m for _, m, _ in self.received_phasors], [p for _, _, p in self.received_phasors], option='sc_calib')
+            # Add the received phasor to the list
+            self.received_phasors = [ [frequencies[i], 20*np.log10(magnitudes[i]), (180/np.pi) * phases[i]] for i in range(len(phases)) ]
 
-                time.sleep(1)
+            # v_phasors = np.array(magnitudes) * np.exp(1j * phases)
+            # z_phasors = 100 * v_phasors / (1 - v_phasors)
+
+            # Update the plot with the new phasor
+            self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors],
+                                        [m for _, m, _ in self.received_phasors],
+                                        [p for _, _, p in self.received_phasors], option='sc_calib')
+            time.sleep(1)
 
         except Exception as exc:
             print(f"ShortCalibration Error: {exc}")
@@ -133,26 +146,38 @@ class OpenCalibration(QThread):
         self.serial_obj.serial_timeout = 10000000
         try:
             # Start the calibration loop
-            while self.run:
-                # Get the phasors (frequency, magnitude, phase)
-                oc_phasors = self.serial_obj.execute_cmd("start_oc_calib")
+            # Get the phasors (frequency, magnitude, phase)
+            oc_phasors = self.serial_obj.execute_cmd("start_oc_calib")
 
-                # Check if no phasor is returned
-                if oc_phasors[0] is None:
-                    print("No more phasors received. Saving data to file. Ending open circuit calibration.")
-                    # Save to binary file
-                    write_phasors_to_text_file(self.file_path + '\\%s_open_calibration.txt' % get_date_time(2), self.received_phasors)
+            # Check if no phasor is returned
+            if oc_phasors[0] is None:
+                print("No more phasors received. Saving data to file. Ending open circuit calibration.")
+                # Save to binary file
+                write_phasors_to_text_file(self.file_path + '\\%s_open_calibration.txt' % get_date_time(2), self.received_phasors)
 
-                    self.stop()
-                    break  # Exit loop if no more phasors are received
+                self.stop()
 
-                # Add the received phasor to the list
-                self.received_phasors.append(oc_phasors[0])
+            frequencies = []
+            magnitudes = []
+            phases = [] # convert to degs
+            for i in range(len(oc_phasors)):
+                if i % 3 == 0:
+                    frequencies.append(oc_phasors[i])
+                if i % 3 == 1:
+                    magnitudes.append(oc_phasors[i])
+                if i % 3 == 2:
+                    phases.append(oc_phasors[i])
 
-                # Update the plot with the new phasor
-                self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors], [m for _, m, _ in self.received_phasors], [p for _, _, p in self.received_phasors], option='oc_calib')
+            # Add the received phasor to the list
+            self.received_phasors = [ [frequencies[i], 20*np.log10(magnitudes[i]), (180/np.pi) * phases[i]] for i in range(len(phases)) ]
 
-                time.sleep(1)
+            # v_phasors = np.array(magnitudes) * np.exp(1j * phases)
+            # z_phasors = 100 * v_phasors / (1 - v_phasors)
+
+            # Update the plot with the new phasor
+            self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors],
+                                        [m for _, m, _ in self.received_phasors],
+                                        [p for _, _, p in self.received_phasors], option='oc_calib')
 
         except Exception as exc:
             print(f"OpenCalibration Error: {exc}")
@@ -193,7 +218,7 @@ class ReadoutMeasurement(QThread):
             # Start the measurement loop
             # Get the phasors (frequency, magnitude, phase) for the measurement
             dut_phasors = self.serial_obj.execute_cmd("readout_meas")
-            print(np.size(dut_phasors))
+            # print(np.size(dut_phasors))
 
             # Check if no phasor is returned
             if dut_phasors[0] is None: # idk what the top condition would be?
@@ -269,20 +294,42 @@ class RLCFitting(QThread):
         self.serial_obj.serial_timeout = 10000000
         try:
             # Cmd
+            # MCU will just resend what it has stored - just makes it easier
             rlc_data = self.serial_obj.execute_cmd("start_rlc_fit")
             if rlc_data is None:
                 print("rlc_data is None")
             # Console
-            self.serial_obj.print('\nS: RLC Fit Data %s, ' % rlc_data)
+            # self.serial_obj.print('\nS: RLC Fit Data %s, ' % rlc_data)
             # Save
-            binary_file_write(self.file_path + '\\%s_rlc_fitting.txt' % get_date_time(2), rlc_data)
-        except Exception as exc:
+            # this is broken idk why?
+            # binary_file_write(self.file_path + '\\%s_rlc_fitting.txt' % get_date_time(2), rlc_data)
+
+            freqs = np.array([rlc_data[i] for i in range(len(rlc_data)) if i % 3 == 0])
+
+            name, best_fit = rlc.rlc_fit_re_im(rlc_data)
+
+            try:
+                fitfunc = best_fit["model"]
+                RLCparams = best_fit["popt"]
+            except KeyError as e:
+                print("Key error? what did you send through??")
+
+            Z_theoretical = fitfunc(freqs, *RLCparams)
+
+            self.plot_obj.plot_bode(freqs, 
+                                    20 * np.log10(np.abs(Z_theoretical)),
+                                    180 / np.pi * np.angle(Z_theoretical),
+                                    option= 'model_fit')
+            
+            self.serial_obj.print(f'RLC Device: {name}, with R: {RLCparams[0]:.3e} L: {RLCparams[1]:.3e} C: {RLCparams[2]:.3e}')
+
+        except ZeroDivisionError as exc:
             print("RLCFitting: " + str(exc))
             self.done_s.emit([])
         else:
             self.done_s.emit([self.file_path, self.next_step, rlc_data[-1]])
         self.serial_obj.serial_timeout = 1000000
-        self.next_step = False
+        self.next_step = True
 
     def config(self, file_path, next_step=False):
         self.file_path = file_path
@@ -324,7 +371,8 @@ class QFactor(QThread):
 
     def config(self, file_path, next_step=False):
         self.file_path = file_path
-        self.next_step = next_step
+        # self.next_step = next_step
+        self.next_step = True
 
 
 # ==============================================================================================================================

@@ -35,7 +35,7 @@ void ADC_SampleSingleShot(void)
 
 	Sig_Gen_Enable();
 
-	HAL_Delay(10 * 1000 / Get_Signal_Frequency()); // 10 periods of the lowest freq
+	HAL_Delay(10 * 1000 / 100); // 10 periods of the lowest freq
 //	HAL_Delay( 3 * 806 );
 
 	Sampling_Enable();
@@ -191,7 +191,7 @@ void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, u
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
-	Set_Sampling_Frequency(F_SAMPLE); // 1E6
+	Set_Sampling_Frequency(F_SAMPLE);
 
 	phasor_t v1[NFREQUENCIES];
 	phasor_t v2[NFREQUENCIES];
@@ -270,8 +270,9 @@ phasor_t Get_Phasor_2Sig(uint16_t sig[], uint16_t ref[], size_t lensig, size_t l
 	// Think about optimising this bc this calculates
 	// the ref_cos and ref_sin twice
 
-	// will now procede to filter!
+
 #ifdef __USING_MOVING_AVERAGE
+	// will now procede to filter!
 	uint16_t sig_filtered[lensig];
 	uint16_t ref_filtered[lenref];
 
@@ -288,14 +289,25 @@ phasor_t Get_Phasor_2Sig(uint16_t sig[], uint16_t ref[], size_t lensig, size_t l
 //	{
 //		while(1) TransmitStringRaw("2-phasor NAN!!");
 //	}
+#ifdef __INCLUDE_CONV_PHASE
+	double conv_phase = 2*M_PI*Get_Signal_Frequency() * T_DELAY_SAMPLE;
+#endif
 
 	return (phasor_t) {
 		output.magnitude / input.magnitude,
 #ifdef __WRAP2_2PI
-		wrap2_2pi( output.phaserad - input.phaserad )
+#ifdef __INCLUDE_CONV_PHASE
+		wrap2_2pi( output.phaserad - input.phaserad + conv_phase ) // see if it's PLUS or MINUS
+#else
+		wrap2_2pi( output.phaserad - input.phaserad)
+#endif /* INCLUDE CONV PHASE */
+#else
+#ifdef __INCLUDE_CONV_PHASE
+		output.phaserad - input.phaserad + conv_phase
 #else
 		output.phaserad - input.phaserad
-#endif
+#endif /* INCLUDE CONV PHASE */
+#endif /* WRAP 2 2PI*/
 	};
 }
 
@@ -312,24 +324,12 @@ phasor_t phasor_sub(phasor_t x1, phasor_t x2)
         return (phasor_t){0.0, 0.0};
     }
 
-#ifdef __INCLUDE_CONV_PHASE
-    double conv_phase = 2*M_PI*Get_Signal_Frequency() * T_DELAY_SAMPLE;
-#endif
-
 	return (phasor_t) {
 		sqrt(vdiff_real*vdiff_real + vdiff_imag*vdiff_imag),
 #ifdef __WRAP2_2PI
-#ifdef __INCLUDE_CONV_PHASE
-		wrap2_2pi( atan2(vdiff_imag, vdiff_real) + conv_phase)
-#else
 		wrap2_2pi( atan2(vdiff_imag, vdiff_real) )
-#endif
-#else
-#ifdef __INCLUDE_CONV_PHASE
-		atan2(vdiff_imag, vdiff_real) + conv_phase
 #else
 		atan2(vdiff_imag, vdiff_real)
-#endif
 #endif
 	};
 }
@@ -339,24 +339,13 @@ phasor_t Calculate_Zx_Raw(phasor_t v1, phasor_t v2, switching_resistor_t Rref)
 {
 	phasor_t vdiff = phasor_sub(v1, v2);
 
-#ifdef __INCLUDE_CONV_PHASE
-    double conv_phase = 2*M_PI*Get_Signal_Frequency() * T_DELAY_SAMPLE;
-#endif
-
 	return (phasor_t) {
-		((double) (Rref/1000)) * v2.magnitude / vdiff.magnitude, // divide my 1000 bc its in mOhms!!
+		(Rref/1000) * v2.magnitude / vdiff.magnitude, // divide my 1000 bc its in mOhms!!
 #ifdef __WRAP2_2PI
-#ifdef __INCLUDE_CONV_PHASE
 	    wrap2_2pi( v2.phaserad - vdiff.phaserad)
 #else
-		wrap2_2pi( v2.phaserad - vdiff.phaserad)
-#endif
-#else
-#ifdef __INCLUDE_CONV_PHASE
-		v2.phaserad - vdiff.phaserad + conv_phase
-#else
+
 		v2.phaserad - vdiff.phaserad
-#endif
 #endif
 	};
 }
@@ -382,17 +371,9 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t 
 	return (phasor_t) {
 		Z_temp1.magnitude * Z_temp2.magnitude / Z_temp3.magnitude,
 #ifdef __WRAP2_2PI
-#ifdef __INCLUDE_CONV_PHASE
 		wrap2_2pi( Z_temp1.phaserad + Z_temp2.phaserad - Z_temp3.phaserad )
 #else
-		wrap2_2pi( Z_temp1.phaserad + Z_temp2.phaserad - Z_temp3.phaserad )
-#endif
-#else
-#ifdef __INCLUDE_CONV_PHASE
 		Z_temp1.phaserad + Z_temp2.phaserad - Z_temp3.phaserad
-#else
-		Z_temp1.phaserad + Z_temp2.phaserad - Z_temp3.phaserad
-#endif
 #endif
 	};
 }

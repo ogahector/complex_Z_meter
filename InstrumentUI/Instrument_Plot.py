@@ -165,13 +165,14 @@ class PlotCanvas(FigureCanvas):
         - frequency: List or numpy array of frequency values (log scale).
         - magnitude: Corresponding magnitude values in dB.
         - phase: Corresponding phase values in degrees.
-        - option: String determining the plot style ('sc_calib', 'oc_calib', 'meas').
+        - option: String determining the plot style ('sc_calib', 'oc_calib', 'meas', 'model_fit').
         """
         # Define default styles for each option
         plot_styles = {
             'sc_calib': {'color': 'g', 'linestyle': '--', 'linewidth': 1},
-            'oc_calib': {'color': 'r', 'linestyle': ':', 'linewidth': 1},
+            'oc_calib': {'color': 'm', 'linestyle': ':', 'linewidth': 1},
             'meas': {'color': 'b', 'linestyle': '-', 'linewidth': 2},
+            'model_fit': {'color': '#FFA500', 'linestyle': '--', 'linewidth': 2}
         }
 
         # Select style based on the 'option' parameter
@@ -206,8 +207,8 @@ class PlotCanvas(FigureCanvas):
         self.bode_mag_ax.relim()
         self.bode_mag_ax.autoscale_view()
 
-        # self.bode_phase_ax.set_ylim(bottom= -180, top=180)
-        self.bode_phase_ax.set_ylim(bottom= 0, top=360)
+        self.bode_phase_ax.set_ylim(bottom= -180, top=180)
+        # self.bode_phase_ax.set_ylim(bottom= 0, top=360)
         self.bode_phase_ax.autoscale_view()
 
         # Redraw the figure

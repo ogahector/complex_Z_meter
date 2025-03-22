@@ -8,19 +8,20 @@ from scipy.optimize import curve_fit
 def series_model(freq, R, L, C):
     # RLC all in series
     omega = 2 * np.pi * freq
-    return R + 1j * (omega * L - 1/(omega * C))
+    return R + 1j * omega * L + 1/(1j * omega * C)
 
 def parallel_model(freq, R, L, C):
     # RLC all in parallel
     omega = 2 * np.pi * freq
-    Y = 1/R + 1j * (omega * C - 1/(omega * L))
+    Y = 1/R + 1j * omega * C + 1/(1j * omega * L)
     return 1 / Y
 
 def resistor_model(freq, R, L, C):
     # RL in series, with C in shunt
     omega = 2 * np.pi * freq
-    Y = 1j * omega * C + 1 / (R + 1j * omega * L)
-    return 1 / Y
+    # Y = 1j * omega * C + 1 / (R + 1j * omega * L)
+    # return 1 / Y
+    return 1 / ( 1j * omega * C + 1 / ( R + 1j * omega * L ) )
 
 def high_value_res_model(freq, R, L, C):
     omega = 2 * np.pi * freq
@@ -48,23 +49,34 @@ def high_value_res_model_fit(freq, R, L, C):
 # =============================================================================
 # Data Preparation
 # =============================================================================
-def prepare_data_real_imag(measurement_dict):
+def prepare_data_real_imag(data):
     """
-    Converts a dictionary of frequency (Hz) to complex impedance into arrays.
+    Converts a flat array of frequency, magnitude and phase into arrays.
     Returns:
       - Sorted frequencies.
       - Array of measured complex impedances.
       - Concatenated real and imaginary parts for fitting.
     """
-    freqs = np.array(sorted(measurement_dict.keys()))
-    Z_measured = np.array([measurement_dict[f] for f in freqs])
-    data = np.concatenate([np.real(Z_measured), np.imag(Z_measured)])
-    return freqs, Z_measured, data
+    freqs = []
+    mags = []
+    phases = []
+    for i in range(0, len(data)):
+        if i % 3 == 0:
+            freqs.append(data[i])
+        elif i % 3 == 1:
+            mags.append(data[i])
+        elif i % 3 == 2:
+            phases.append(data[i])
+
+    freqs = np.array(sorted(freqs))
+    Z_measured = np.array(mags * np.exp(  1j * np.array(phases) ))
+    usable_data = np.concatenate([np.real(Z_measured), np.imag(Z_measured)])
+    return freqs, Z_measured, usable_data
 
 # =============================================================================
 # Iterative Refinement for the Fitting Process
 # =============================================================================
-def iterative_fit(model_func, freqs, data, initial_guess, bounds, tol=1e-6, max_iter=10):
+def iterative_fit(model_func, freqs, data, initial_guess, bounds, tol=1e-9, max_iter=10):
     """
     Iteratively refines the fit parameters.
     
@@ -125,12 +137,13 @@ rlc_models = {
 # =============================================================================
 # Main Analysis: Compare Models with Iterative Fitting.
 # =============================================================================
-def main(measurement_dict, freqlog=False):
+def rlc_fit_re_im(measurements) -> tuple[ str, dict ]:
     # Prepare measured data.
-    freqs, Z_measured, data = prepare_data_real_imag(measurement_dict)
+    freqs, Z_measured, data = prepare_data_real_imag(measurements)
     
     # --- Initial Guess and Bounds ---
     R0 = np.median(np.real(Z_measured))
+    # R0 = np.sqrt( 10 * 1e6 ) # gemoetric mean of impedances
     L0 = 1e-9  # in Henries
     C0 = 1e-12  # in Farads
     initial_guess = [R0, L0, C0]
@@ -173,6 +186,19 @@ def main(measurement_dict, freqlog=False):
     print(f"L = {best_popt[1]:.3e} ± {best_perr[1]:.3e} H")
     print(f"C = {best_popt[2]:.3e} ± {best_perr[2]:.3e} F")
     print(f"Sum of squared residuals: {best_res['ssq']:.3e}")
+
+    return best_model_name, best_res
+
+
+def main(measurements, freqlog=False):
+    best_model_name, best_res = rlc_fit_re_im(measurements)
+    
+    best_popt = best_res["popt"]
+    best_perr = best_res["perr"]
+    best_model = best_res["model"]
+    best_model_fit = best_res["model_fit"]
+
+    freqs, Z_measured, _ = prepare_data_real_imag(measurements)
     
     # --- Plotting: Compare Measured Data with the Fitted Model ---
     freq_dense = np.linspace(min(freqs), max(freqs), 1000)
@@ -226,7 +252,7 @@ if __name__ == "__main__":
     #     noise = np.abs(np.random.normal(scale=0.20))
     #     measurement_dict[f] = Z * (1 + noise)
 
-    data = [100, 2508.7, 1.2144, 126, 1260.2, 6.1414, 158, 1181.9, 5.917, 200, 852.24, 0.21708, 251, 910.45, 6.17, 316, 1055.4, 6.0608, 398, 968.85, 6.113, 501, 932.18, 0.034196, 631, 927.37, 0.052376, 794, 966.38, 0.044535, 1000, 979.91, 0.02937, 1259, 1026.2, 0.0082968, 1587, 964.5, 6.2536, 2000, 1009.3, 6.262, 2512, 1004.5, 6.2329, 3164, 1000.7, 6.2095, 4000, 991.85, 6.1789, 5050, 1002.6, 6.1632, 6329, 998.1, 6.1355, 8064, 992.91, 6.0915, 10000, 1000.2, 6.0486, 12820, 990.97, 5.9847, 16129, 983.51, 5.9104, 20000, 981.18, 5.8179, 26315, 962.25, 5.6729, 33333, 943.69, 5.5179, 41666, 915.75, 5.3349, 55555, 863.16, 5.0423, 71428, 800.2, 4.7151, 83333, 752.93, 4.4887]
+    data = [100, 3830.3, 0.63425, 126, 3145.5, 5.1053, 158, 1159.6, 5.8947, 200, 2097.0, 5.9274, 251, 866.14, 0.039018, 316, 1025.4, 0.25573, 398, 952.42, 6.1027, 501, 1078.1, 6.2502, 631, 1144.6, 6.1772, 794, 1147.0, 0.020207, 1000, 1019.0, 6.2234, 1259, 1076.6, 6.2507, 1587, 1041.7, 0.051835, 2000, 954.88, 0.031093, 2512, 970.64, 0.043148, 3164, 967.85, 0.027785, 4000, 1012.4, 0.031298, 5050, 976.94, 0.0086845, 6329, 1002.3, 0.010878, 8064, 999.9, 0.0088616, 10000, 1002.3, 0.00682, 12820, 1002.1, 0.021743, 16129, 1000.0, 0.033297, 20000, 995.4, 0.035552, 26315, 1001.3, 0.042906, 33333, 996.59, 0.057959, 41666, 1000.2, 0.072334, 55555, 997.77, 0.096274, 71428, 998.42, 0.11875, 83333, 1002.4, 0.13403]
 
     freqs = []
     mags = []
@@ -240,7 +266,5 @@ if __name__ == "__main__":
             phases.append(data[i])
 
     measurement_dict = {freqs[i]: mags[i] * np.exp(1j * phases[i]) for i in range(len(freqs))}
-    print(measurement_dict)
 
-
-    main(measurement_dict, freqlog=True)
+    main(measurements=data, freqlog=True)
