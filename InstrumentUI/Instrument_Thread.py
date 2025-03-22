@@ -376,7 +376,7 @@ class RLCFitting(QThread):
 
             freqs = np.array([rlc_data[i] for i in range(len(rlc_data)) if i % 3 == 0])
 
-            name, best_fit = rlc.rlc_fit_re_im(rlc_data)
+            name, best_fit = rlc.rlc_fit_re_im(rlc_data, Rtol=0.1, Ltol=1e-9, Ctol=1e-12)
 
             try:
                 fitfunc = best_fit["model"]

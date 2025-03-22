@@ -13,7 +13,7 @@
 #include "main.h"
 #include "relay.h"
 
-#define ADC_SAMPLES_PER_CHANNEL (5000)
+#define ADC_SAMPLES_PER_CHANNEL (10000)
 #define ADC_BUFFER_SIZE (2*ADC_SAMPLES_PER_CHANNEL)
 //#define ADC_BUFFER_SIZE 4
 
@@ -100,6 +100,8 @@ phasor_t Calculate_Zx_Raw(phasor_t v1, phasor_t v2, switching_resistor_t Rref);
  * @param Zom: The open-circuit impedance phasor from calibration.
  * @return The calibrated DUT impedance phasor.
  */
+phasor_t Calculate_Zx_Full_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t Rref, phasor_t Zsm, phasor_t Zom, phasor_t Zstdm, phasor_t Zstd);
+
 phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t Rref, phasor_t Zsm, phasor_t Zom);
 
 /**
@@ -139,7 +141,10 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref);
  * @param Rref: The reference resistance value.
  * @param frequencies_visited: Array to store the frequencies at which measurements were made.
  */
+
 void Measurement_Routine_Zx_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
+
+void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], phasor_t Zstdm_buff[], phasor_t Zstd, switching_resistor_t Rref, uint32_t frequencies_visited[]);
 
 void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
 

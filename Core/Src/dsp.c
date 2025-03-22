@@ -35,7 +35,7 @@ void ADC_SampleSingleShot(void)
 
 	Sig_Gen_Enable();
 
-	HAL_Delay(10 * 1000 / 100); // 10 periods of the lowest freq
+	HAL_Delay(10 * 1000 / Get_Signal_Frequency()); // 10 periods of the lowest freq
 //	HAL_Delay( 3 * 806 );
 
 	Sampling_Enable();
@@ -112,10 +112,10 @@ uint32_t Sample_Steady_State(uint32_t f0, uint16_t vmeas0[], uint16_t vmeas1[])
 
 	ADC_SampleSingleShot();
 
-	ADC_Separate_Channels(vmeas_buffer, vmeas0, vmeas1);
-
 	Sampling_Disable();
 	Sig_Gen_Disable();
+
+	ADC_Separate_Channels(vmeas_buffer, vmeas0, vmeas1);
 
 	return actualFreq;
 }
@@ -184,6 +184,26 @@ void Measurement_Routine_Zx_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], 
 	}
 	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 }
+
+void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], phasor_t Zstdm_buff[], phasor_t Zstd, switching_resistor_t Rref, uint32_t frequencies_visited[])
+{
+	Choose_Switching_Resistor(Rref);
+	uint32_t frequencies_wanted[NFREQUENCIES];
+	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
+
+	phasor_t v1[NFREQUENCIES];
+	phasor_t v2[NFREQUENCIES];
+
+	Set_Sampling_Frequency(F_SAMPLE);
+
+	for(size_t i = 0; i < NFREQUENCIES; i++)
+	{
+		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &v2[i]);
+		Zx_buff[i] = Calculate_Zx_Full_Calibrated(v1[i], v2[i], Rref, Zsm_buff[i], Zom_buff[i], Zstdm_buff[i], Zstd);
+	}
+	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+}
+
 
 void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
@@ -374,6 +394,33 @@ phasor_t Calculate_Zx_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t 
 		wrap2_2pi( Z_temp1.phaserad + Z_temp2.phaserad - Z_temp3.phaserad )
 #else
 		Z_temp1.phaserad + Z_temp2.phaserad - Z_temp3.phaserad
+#endif
+	};
+}
+
+phasor_t Calculate_Zx_Full_Calibrated(phasor_t v1, phasor_t v2, switching_resistor_t Rref, phasor_t Zsm, phasor_t Zom, phasor_t Zstdm, phasor_t Zstd)
+{
+	phasor_t Zm = Calculate_Zx_Raw(v1, v2, Rref);
+
+	/*
+	 * ZDUT = Ztd * (Zom - Zstdm) * (Zm - Zsm) / ( (Zstdm - Zsm) * (Zom - Zm) )
+	* */
+
+	phasor_t ZomZstdm = phasor_sub(Zom, Zstdm);
+	phasor_t ZmZsm = phasor_sub(Zm, Zsm);
+	phasor_t ZstdmZsm = phasor_sub(Zstdm, Zsm);
+	phasor_t ZomZm = phasor_sub(Zom, Zm);
+	 // edge case -> div by 0 => 0s will be ignored in dB
+	if(ZomZm.magnitude == 0 || ZstdmZsm.magnitude == 0) return (phasor_t) {0,0};
+
+
+
+	return (phasor_t) {
+		Zstd.magnitude * ZomZstdm.magnitude * ZmZsm.magnitude / ( ZstdmZsm.magnitude * ZomZm.magnitude ),
+#ifdef __WRAP2_2PI
+		wrap2_2pi( Zstd.phaserad + ZomZstdm.phaserad + ZmZsm.phaserad - ZstdmZsm.phaserad - ZomZm.phaserad )
+#else
+		Zstd.phaserad + ZomZstdm.phaserad + ZmZsm.phaserad - ZstdmZsm.phaserad - ZomZm.phaserad
 #endif
 	};
 }

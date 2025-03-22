@@ -43,6 +43,8 @@ typedef enum __ui_command_t{
 	start_oc_calib=                   0x0204,
 	stop_sc_calib=                    0x0205,
 	stop_oc_calib=                    0x0206,
+	start_ld_calib=					  0x0207,
+	stop_ld_calib=					  0x0208,
 	rref_get_val=                     0x0300,
 	rref_set_val=                     0x1301,
 

@@ -76,7 +76,9 @@ def prepare_data_real_imag(data):
 # =============================================================================
 # Iterative Refinement for the Fitting Process
 # =============================================================================
-def iterative_fit(model_func, freqs, data, initial_guess, bounds, tol=1e-9, max_iter=10):
+def iterative_fit(model_func, freqs, data, initial_guess, bounds=None, 
+                  Rtol=0.1, Ltol=1e-9, Ctol=1e-12, 
+                  max_iter=50, method="lm"):
     """
     Iteratively refines the fit parameters.
     
@@ -95,13 +97,19 @@ def iterative_fit(model_func, freqs, data, initial_guess, bounds, tol=1e-9, max_
       ssq         : Sum of squared residuals.
     """
     current_guess = np.array(initial_guess)
+    tol = 1e-10
+    if method.lower() == "lm":
+        bounds = None
     for iteration in range(max_iter):
-        popt, pcov = curve_fit(model_func, freqs, data, p0=current_guess, bounds=bounds)
+        popt, pcov = curve_fit(model_func, freqs, data, 
+                               p0=current_guess, bounds=bounds,
+                               method=method)
         residuals = data - model_func(freqs, *popt)
         ssq = np.sum(residuals**2)
         
         # Check convergence: if the change in parameters is below tolerance.
-        if np.all(np.abs(popt - current_guess) < tol):
+        # if np.all(np.abs(popt - current_guess) < tol):
+        if within_tolerance(*popt, *current_guess, Rtol, Ltol, Ctol):
             print(f"Convergence reached after {iteration+1} iterations.")
             break
         
@@ -111,6 +119,15 @@ def iterative_fit(model_func, freqs, data, initial_guess, bounds, tol=1e-9, max_
     
     perr = np.sqrt(np.diag(pcov))
     return popt, perr, ssq
+
+def within_tolerance(R1, L1, C1, R2, L2, C2, Rtol, Ltol, Ctol):
+    if(np.abs(R1 - R2) < Rtol):
+        return False
+    if(np.abs(L1 - L2) < Ltol):
+        return False
+    if(np.abs(C1 - C2) < Ctol):
+        return False
+    return True
 
 # =============================================================================
 # Data Structure for Models
@@ -137,15 +154,19 @@ rlc_models = {
 # =============================================================================
 # Main Analysis: Compare Models with Iterative Fitting.
 # =============================================================================
-def rlc_fit_re_im(measurements) -> tuple[ str, dict ]:
+def rlc_fit_re_im(measurements, Rtol=0.1, Ltol=1e-9, Ctol=1e-12, plot_all=False) -> tuple[ str, dict ]:
     # Prepare measured data.
     freqs, Z_measured, data = prepare_data_real_imag(measurements)
     
     # --- Initial Guess and Bounds ---
     R0 = np.median(np.real(Z_measured))
     # R0 = np.sqrt( 10 * 1e6 ) # gemoetric mean of impedances
-    L0 = 1e-9  # in Henries
-    C0 = 1e-12  # in Farads
+    # L0 = 1e-9  # in Henries
+    # C0 = 1e-12  # in Farads
+    R0 = 0
+    L0 = 0
+    C0 = 0
+
     initial_guess = [R0, L0, C0]
     bounds = (0, np.inf)  # Only positive values.
     
@@ -155,7 +176,10 @@ def rlc_fit_re_im(measurements) -> tuple[ str, dict ]:
     # Iterate over each model in the data structure.
     for name, funcs in rlc_models.items():
         try:
-            popt, perr, ssq = iterative_fit(funcs["model_fit"], freqs, data, initial_guess, bounds)
+            popt, perr, ssq = iterative_fit(funcs["model_fit"], freqs, data, 
+                                            initial_guess, bounds=bounds, 
+                                            Rtol=Rtol, Ltol=Ltol, Ctol=Ctol, 
+                                            method="trf")
         except Exception as e:
             print(f"{name} model iterative fit failed: {e}")
             popt, perr, ssq = None, None, np.inf
@@ -171,6 +195,7 @@ def rlc_fit_re_im(measurements) -> tuple[ str, dict ]:
             best_model_name = name
     
     if best_model_name is None:
+        print(results)
         raise Exception("No valid model found.")
     
     best_res = results[best_model_name]
@@ -187,11 +212,52 @@ def rlc_fit_re_im(measurements) -> tuple[ str, dict ]:
     print(f"C = {best_popt[2]:.3e} ± {best_perr[2]:.3e} F")
     print(f"Sum of squared residuals: {best_res['ssq']:.3e}")
 
+    if plot_all:
+        for name, res in results.items():
+            popt = res['popt']
+            model = res['model']
+
+            if popt is None:
+                print(f'Could not display model {name}')
+                continue
+            print(f'Displaying model {name}...')
+
+            freq_dense = np.logspace(np.log10(freqs[0]), np.log10(freqs[-1]), 1000)
+            Z_model_dense = model(freq_dense, *popt)
+
+            f = plt.figure(figsize=(12, 6))
+            plt.subplot(2, 1, 1)
+
+            plt.semilogx(freqs, np.real(Z_measured), 'o', label='Measured (Real)')
+            plt.semilogx(freq_dense, np.real(Z_model_dense), '-', label='Fitted Model (Real)')
+
+            plt.xlabel('Frequency (Hz)')
+            plt.ylabel('Real Impedance (Ohm)')
+            plt.legend()
+            plt.grid(True)
+
+            plt.subplot(2, 1, 2)
+
+            plt.semilogx(freqs, np.imag(Z_measured), 'o', label='Measured (Imag)')
+            plt.semilogx(freq_dense, np.imag(Z_model_dense), '-', label='Fitted Model (Imag)')
+            plt.xlabel('Frequency (Hz)')
+            plt.ylabel('Imaginary Impedance (Ohm)')
+            plt.legend()
+            plt.grid(True)
+
+            plt.title(f'Model {name}, with R: {popt[0]:.2e}, L: {popt[1]:.2e}, C: {popt[2]:.2e}')
+            
+            plt.tight_layout()
+
+            f.show()
+        
+            plt.show()
+
     return best_model_name, best_res
 
 
 def main(measurements, freqlog=False):
-    best_model_name, best_res = rlc_fit_re_im(measurements)
+    best_model_name, best_res = rlc_fit_re_im(measurements, plot_all=True)
     
     best_popt = best_res["popt"]
     best_perr = best_res["perr"]
@@ -203,6 +269,8 @@ def main(measurements, freqlog=False):
     # --- Plotting: Compare Measured Data with the Fitted Model ---
     freq_dense = np.linspace(min(freqs), max(freqs), 1000)
     Z_model_dense = best_model(freq_dense, *best_popt)
+
+    return
     
     plt.figure(figsize=(12, 6))
     plt.subplot(2, 1, 1)
@@ -237,34 +305,40 @@ def main(measurements, freqlog=False):
 # =============================================================================
 
 if __name__ == "__main__":
-    true_R = 100      # Ohm
-    true_L = 1e-3     # Henries
-    true_C = 1e-6     # Farads
+    true_R = 1      # Ohm
+    true_L = 1e-6     # Henries
+    true_C = 1e-8     # Farads
 
-    # # Generate frequencies from 1 kHz to 1 MHz.
-    # freqs = np.linspace(1e2, 1e6, 50).astype(int)
-    # measurement_dict = {}
+    # Generate frequencies from 1 kHz to 1 MHz.
+    freqs = np.logspace(2, 6, 50).astype(int)
+
+    data_sim = []
     
-    # # Generate synthetic impedance data with some Gaussian noise.
-    # for f in freqs:
-    #     omega = 2 * np.pi * f
-    #     Z = true_R + 1j * (omega * true_L - 1/(omega * true_C))
-    #     noise = np.abs(np.random.normal(scale=0.20))
-    #     measurement_dict[f] = Z * (1 + noise)
+    # Generate synthetic impedance data with some Gaussian noise.
+    for f in freqs:
+        omega = 2 * np.pi * f
+        Z = true_R + 1j * (omega * true_L - 1/(omega * true_C))
+        noise = np.abs(np.random.normal(scale=0.20))
+        Z_noisy = Z * noise
+        data_sim.extend([f, np.abs(Z_noisy), np.angle(Z_noisy)])
+        
 
     data = [100, 3830.3, 0.63425, 126, 3145.5, 5.1053, 158, 1159.6, 5.8947, 200, 2097.0, 5.9274, 251, 866.14, 0.039018, 316, 1025.4, 0.25573, 398, 952.42, 6.1027, 501, 1078.1, 6.2502, 631, 1144.6, 6.1772, 794, 1147.0, 0.020207, 1000, 1019.0, 6.2234, 1259, 1076.6, 6.2507, 1587, 1041.7, 0.051835, 2000, 954.88, 0.031093, 2512, 970.64, 0.043148, 3164, 967.85, 0.027785, 4000, 1012.4, 0.031298, 5050, 976.94, 0.0086845, 6329, 1002.3, 0.010878, 8064, 999.9, 0.0088616, 10000, 1002.3, 0.00682, 12820, 1002.1, 0.021743, 16129, 1000.0, 0.033297, 20000, 995.4, 0.035552, 26315, 1001.3, 0.042906, 33333, 996.59, 0.057959, 41666, 1000.2, 0.072334, 55555, 997.77, 0.096274, 71428, 998.42, 0.11875, 83333, 1002.4, 0.13403]
 
-    freqs = []
-    mags = []
-    phases = []
-    for i in range(0, len(data)):
-        if i % 3 == 0:
-            freqs.append(data[i])
-        elif i % 3 == 1:
-            mags.append(data[i])
-        elif i % 3 == 2:
-            phases.append(data[i])
+    data10Ohms = [100, 96.501, -3.0725, 126, 450.28, -3.0176, 158, 15.93, -0.71009, 200, 65.354, -2.5703, 251, 41.311, -0.84842, 316, 7.9516, 0.79363, 398, 9.0305, 0.10746, 501, 10.462, 0.55468, 631, 4.4881, -0.77958, 794, 8.4864, 0.21163, 1000, 14.002, 0.17652, 1259, 6.5227, -0.39002, 1587, 12.668, 0.18917, 2000, 10.071, -0.024883, 2512, 9.7974, 0.019536, 3164, 11.832, 0.35374, 4000, 9.7971, 0.010781, 5050, 10.057, -0.079714, 6329, 10.15, -0.072141, 8064, 10.187, -0.069057, 10000, 9.8224, 0.067995, 12820, 10.14, -0.0020733, 16129, 10.124, 0.004766, 20000, 8.6804, -0.063401, 26315, 9.9627, 0.008273, 33333, 5.6324, -0.23971, 41666, 10.049, 0.0098545, 55555, 10.256, 0.014278, 71428, 8.3908, -0.0311, 83333, 7.984, -0.051899]
+    data10nF = [100, 65910.0, 3.7857, 126, 34584.0, 1.5194, 158, 201290.0, 1.5796, 200, 88228.0, 1.2482, 251, 58805.0, 1.8933, 316, 45507.0, 1.4742, 398, 43590.0, 1.5965, 501, 32343.0, 1.6862, 631, 27280.0, 1.5771, 794, 21915.0, 1.5811, 1000, 16628.0, 1.5833, 1259, 13473.0, 1.6077, 1587, 10860.0, 1.5543, 2000, 8253.0, 1.5837, 2512, 6753.5, 1.589, 3164, 5255.2, 1.5729, 4000, 4234.7, 1.5851, 5050, 3303.3, 1.5578, 6329, 2655.0, 1.5575, 8064, 2095.7, 1.5374, 10000, 1620.6, 1.5154, 12820, 1318.1, 1.5482, 16129, 1043.4, 1.5242, 20000, 954.93, 1.6984, 26315, 629.95, 1.5067, 33333, 376.08, 1.4983, 41666, 403.98, 1.422, 55555, 306.45, 1.4167, 71428, 232.99, 1.1215, 83333, 207.51, 1.4859]
 
-    measurement_dict = {freqs[i]: mags[i] * np.exp(1j * phases[i]) for i in range(len(freqs))}
+    data = data10nF[6:]
 
-    main(measurements=data, freqlog=True)
+    # freqs = []
+    # mags = []
+    # phases = []
+    # for i in range(0, len(data)):
+    #     if i % 3 == 0:
+    #         freqs.append(data[i])
+    #     elif i % 3 == 1:
+    #         mags.append(data[i])
+    #     elif i % 3 == 2:
+    #         phases.append(data[i])
+
+    main(data, freqlog=True)
