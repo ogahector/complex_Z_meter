@@ -75,7 +75,9 @@ command_table = \
         "start_sc_calib": 0x2203,
         "start_oc_calib": 0x2204,
         "stop_sc_calib": 0x2205,
-        "stop_oc_calib": 0x2206,
+        "stop_oc_calib": 0x0206,
+        "start_ld_calib": 0x0207,
+        "stop_ld_calib":  0x0208,
         "rref_get_val": 0x2300,
         "rref_set_val": 0x2301,
 
@@ -183,7 +185,7 @@ class TESTInstrumentCmd(object):
                 return [phasor]  # Return single phasor
 
             # Handle the case for 'start_sc_calib' and 'start_oc_calib' commands
-            elif command in ["start_sc_calib", "start_oc_calib"]:
+            elif command in ["start_sc_calib", "start_oc_calib", "start_ld_calib"]:
                 if self.response_iterator is None:
                     self.response_iterator = iter(response)  # Initialize iterator for first call
                 phasor = next(self.response_iterator, None)  # Get next phasor

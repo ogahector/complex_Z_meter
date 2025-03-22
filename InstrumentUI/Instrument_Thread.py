@@ -198,6 +198,76 @@ class OpenCalibration(QThread):
         self.run = False  # Set run False to exit the loop
 
 # ==============================================================================================================================
+# Load Calibration
+# ==============================================================================================================================
+class LoadCalibration(QThread):
+    done_s = pyqtSignal(list)
+
+    file_path = None
+
+    def __init__(self, serial, plot, parent=None):
+        super(LoadCalibration, self).__init__(parent)
+        self.serial_obj = serial
+        self.plot_obj = plot
+        self.received_phasors = []  # Store received phasors
+        self.run = True
+
+    def run(self):
+        self.serial_obj.serial_timeout = 10000000
+        try:
+            # Start the calibration loop
+            # Get the phasors (frequency, magnitude, phase)
+            oc_phasors = self.serial_obj.execute_cmd("start_ld_calib")
+
+            # Check if no phasor is returned
+            if oc_phasors[0] is None:
+                print("No more phasors received. Saving data to file. Ending load calibration.")
+                # Save to binary file
+                write_phasors_to_text_file(self.file_path + '\\%s_load_calibration.txt' % get_date_time(2), self.received_phasors)
+
+                self.stop()
+
+            frequencies = []
+            magnitudes = []
+            phases = [] # convert to degs
+            for i in range(len(oc_phasors)):
+                if i % 3 == 0:
+                    frequencies.append(oc_phasors[i])
+                if i % 3 == 1:
+                    magnitudes.append(oc_phasors[i])
+                if i % 3 == 2:
+                    phases.append(oc_phasors[i])
+
+            # Add the received phasor to the list
+            self.received_phasors = [ [frequencies[i], 20*np.log10(magnitudes[i]), (180/np.pi) * phases[i]] for i in range(len(phases)) ]
+
+            # v_phasors = np.array(magnitudes) * np.exp(1j * phases)
+            # z_phasors = 100 * v_phasors / (1 - v_phasors)
+
+            # Update the plot with the new phasor
+            self.plot_obj.plot_bode([f for f, _, _ in self.received_phasors],
+                                        [m for _, m, _ in self.received_phasors],
+                                        [p for _, _, p in self.received_phasors], option='load_calib')
+
+        except Exception as exc:
+            print(f"LoadCalibration Error: {exc}")
+            self.done_s.emit([])  # Emit empty result on error
+        else:
+            self.done_s.emit([self.file_path, self.received_phasors])
+
+        # Reset after process ends
+        self.serial_obj.serial_timeout = 1000000
+
+    def config(self, file_path):
+        self.file_path = file_path
+        self.received_phasors = []  # Store received phasors
+        self.run = True
+
+    def stop(self):
+        self.serial_obj.execute_cmd("stop_ld_calib")
+        self.run = False  # Set run False to exit the loop
+
+# ==============================================================================================================================
 # Real-time Measurement Readout
 # ==============================================================================================================================
 class ReadoutMeasurement(QThread):

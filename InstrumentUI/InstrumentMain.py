@@ -105,6 +105,10 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         self.oc_t = OpenCalibration(self.serial_obj, self.plot_obj, self.plot_obj)
         self.oc_t.done_s.connect(self.oc_step_done)
 
+        # - Load Calibration
+        self.ld_t = LoadCalibration(self.serial_obj, self.plot_obj, self.plot_obj)
+        self.ld_t.done_s.connect(self.ld_step_done)
+
         # - Measurement Readout
         self.meas_t = ReadoutMeasurement(self.serial_obj, self.plot_obj)
         self.meas_t.done_s.connect(self.meas_step_done)
@@ -487,7 +491,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
             # Next step
             if ui_send_question('Start measurement?'):
                 self.leave_oc_step()
-                self.enter_meas_step(file_path)
+                self.enter_ld_step(file_path)
             else:
                 self.leave_oc_step()
                 ui_send_info('Open circuit calibration done :)')
@@ -504,6 +508,52 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
                 file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
                 # Start
                 self.enter_oc_step(file_path)
+            else:
+                ui_send_warning('Running, please wait...')
+        except Exception:
+            pass
+
+    # Load Calibration
+    # --------------------------------------------------------------------------------------------------------------------------
+    def enter_ld_step(self, file_path):
+        # UI
+        self.ld_pushButton.setText('Running')
+        ui_set_color_red(self.ld_pushButton)
+        # Thread
+        self.ld_t.config(file_path)
+        self.ld_t.start()
+
+    def leave_ld_step(self):
+        # UI
+        self.ld_pushButton.setText('Load')
+        ui_set_color_green(self.ld_pushButton)
+
+    def ld_step_done(self, data_list):
+        # Check if thread error
+        if data_list:
+            file_path = data_list[0]
+            oc_phasors = data_list[1]  # Open circuit phasors
+
+            # Next step
+            if ui_send_question('Start measurement?'):
+                self.leave_ld_step()
+                self.enter_meas_step(file_path)
+            else:
+                self.leave_ld_step()
+                ui_send_info('Load circuit calibration done :)')
+        else:
+            self.leave_ld_step()
+
+    @pyqtSlot()
+    def on_ld_pushButton_clicked(self):
+        try:
+            if self.ld_pushButton.text() == 'Load':
+                # Check if free to run
+                self.run_if_ready_else_exit()
+                # Create experiment folder
+                file_path = self.create_experiment_folder(self.path_lineEdit.text(), ask=False)
+                # Start
+                self.enter_ld_step(file_path)
             else:
                 ui_send_warning('Running, please wait...')
         except Exception:

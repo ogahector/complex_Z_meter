@@ -170,6 +170,7 @@ class PlotCanvas(FigureCanvas):
         # Define default styles for each option
         plot_styles = {
             'sc_calib': {'color': 'g', 'linestyle': '--', 'linewidth': 1},
+            'load_calib': {'color': 'y', 'linestyle': '--', 'linewidth': 1},
             'oc_calib': {'color': 'm', 'linestyle': ':', 'linewidth': 1},
             'meas': {'color': 'b', 'linestyle': '-', 'linewidth': 2},
             'model_fit': {'color': '#FFA500', 'linestyle': '--', 'linewidth': 2}
