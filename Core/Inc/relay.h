@@ -11,12 +11,12 @@
 #define RELAY_SWITCH_DELAY_MS 5
 
 typedef enum __switching_resistor_t { // this will be in mOhm!!
-	RESISTOR0 = 100000,
+	RESISTOR0 = 100600,
 	RESISTOR1 = 1000000,
 	RESISTOR2 = 10000000,
 	RESISTOR3 = 100000000
 } switching_resistor_t;
 
-void Choose_Switching_Resistor(switching_resistor_t res);
+void Set_Resistor_Hardware(switching_resistor_t res);
 
 #endif /* SRC_RELAY_H_ */

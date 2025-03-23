@@ -13,17 +13,20 @@
 #include "main.h"
 #include "relay.h"
 
-#define ADC_SAMPLES_PER_CHANNEL (10000)
+#define ADC_SAMPLES_PER_CHANNEL (3000)
 #define ADC_BUFFER_SIZE (2*ADC_SAMPLES_PER_CHANNEL)
 //#define ADC_BUFFER_SIZE 4
 
 #define F_SAMPLE_TIMER (2 * HAL_RCC_GetPCLK1Freq())
-#define F_SAMPLE 400000
-#define T_DELAY_SAMPLE ((15 + 15) / 22.5e6)
+#define F_SAMPLE 350000
+#define T_DELAY_SAMPLE ((15 + 15) / (HAL_RCC_GetPCLK2Freq() / 4) )
+
+#define ACCEPTABLE_PHASE_DELTA (M_PI / 4)
+#define MEAS_EXEC_TIMEOUT 20
 
 #define NCONVERSIONCYCLES 45
 //#define __USING_MOVING_AVERAGE
-//#define __WRAP2_2PI
+#define __WRAP2_2PI
 #define __INCLUDE_CONV_PHASE
 
 extern ADC_HandleTypeDef hadc1;
@@ -144,7 +147,7 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref);
 
 void Measurement_Routine_Zx_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
 
-void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], phasor_t Zstdm_buff[], phasor_t Zstd, switching_resistor_t Rref, uint32_t frequencies_visited[]);
+void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], phasor_t Zstdm_buff[], phasor_t Zstd[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
 
 void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[]);
 

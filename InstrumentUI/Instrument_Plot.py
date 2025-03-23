@@ -193,6 +193,10 @@ class PlotCanvas(FigureCanvas):
         if option in self.plots_phase:
             self.plots_phase[option].remove()
 
+            
+        phase = np.array(phase)
+        phase = ( phase + 180) % (2 * 180 ) - 180
+
         # Plot the new magnitude and phase
         bode_mag_fig, = self.bode_mag_ax.plot(frequency, magnitude, color=style['color'],
                                               linestyle=style['linestyle'], linewidth=style['linewidth'])
@@ -216,12 +220,12 @@ class PlotCanvas(FigureCanvas):
         self.figure.subplots_adjust(right=0.95, top=0.95, bottom=0.05, hspace=0.3)
         self.draw()
 
-    def plot_rlc_fit(self, time, error):
+    def plot_rlc_fit(self, freq, magerror, phaseerror):
         """
         Updates the RLC fit curve and the corresponding error plot.
 
         Parameters:
-        - time: List or numpy array of time values.
+        - freq: List or numpy array of freq values.
         - fit_curve: Corresponding voltage values for the RLC fit.
         - error: Error between measured and fitted values.
         """
@@ -234,9 +238,18 @@ class PlotCanvas(FigureCanvas):
 
         # Update Fit Error Plot
         self.rlc_error_fig.remove()
-        self.rlc_error_fig, = self.rlc_error_ax.plot(time, error, 'm-')
-        self.rlc_error_ax.relim()
+
+        self.rlc_error_fig, = self.rlc_error_ax.plot(freq, magerror, 'm-')
+
+        # self.rlc_error_ax.relim()
+        self.rlc_error_ax.set_ylim(bottom=0, top=100)
         self.rlc_error_ax.autoscale_view()
+
+        twin = self.rlc_error_ax.twinx()
+        twin.clear()
+        twin.semilogx(freq, phaseerror, 'g--')
+        twin.set_ylim(bottom=0, top=100)
+        twin.autoscale_view()
 
         # Redraw the figure
         self.figure.subplots_adjust(right=0.95, top=0.95, bottom=0.05, hspace=0.3)

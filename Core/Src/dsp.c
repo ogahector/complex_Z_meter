@@ -168,7 +168,7 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref)
 
 void Measurement_Routine_Zx_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
-	Choose_Switching_Resistor(Rref);
+	Set_Resistor_Hardware(Rref);
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
@@ -177,17 +177,40 @@ void Measurement_Routine_Zx_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], 
 
 	Set_Sampling_Frequency(F_SAMPLE);
 
+	ADC_SampleSingleShot();
+
+	uint32_t timeout_cnt = MEAS_EXEC_TIMEOUT;
+
 	for(size_t i = 0; i < NFREQUENCIES; i++)
 	{
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &v2[i]);
+
+		if(i == 0) continue; // accept value regardless -> see about this
+		if( // nonsensical values, redo - sanity check
+			v2[i].magnitude > 1
+//			|| fabs(wrap2_2pi(Zx_buff[i].phaserad) - wrap2_2pi(Zx_buff[i-1].phaserad)) >= ACCEPTABLE_PHASE_DELTA )// ik it checks at index -1 but it's read only oh well
+		)
+		{
+			TransmitStringRaw("Redoing Frequency Point: ");
+			TransmitUInt32Raw(frequencies_visited[i]); TransmitStringRaw("\n");
+			timeout_cnt--;
+
+			if(timeout_cnt)	i--;
+			else timeout_cnt = MEAS_EXEC_TIMEOUT;
+		}
+		else
+		{
+			timeout_cnt = MEAS_EXEC_TIMEOUT;
+		}
+
 		Zx_buff[i] = Calculate_Zx_Calibrated(v1[i], v2[i], Rref, Zsm_buff[i], Zom_buff[i]);
 	}
 	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 }
 
-void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], phasor_t Zstdm_buff[], phasor_t Zstd, switching_resistor_t Rref, uint32_t frequencies_visited[])
+void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], phasor_t Zstdm_buff[], phasor_t Zstd[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
-	Choose_Switching_Resistor(Rref);
+	Set_Resistor_Hardware(Rref);
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
@@ -196,10 +219,37 @@ void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buf
 
 	Set_Sampling_Frequency(F_SAMPLE);
 
+	ADC_SampleSingleShot();
+
+	uint32_t timeout_cnt = MEAS_EXEC_TIMEOUT;
+
+	extern double capacitance_std;
+
 	for(size_t i = 0; i < NFREQUENCIES; i++)
 	{
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &v2[i]);
-		Zx_buff[i] = Calculate_Zx_Full_Calibrated(v1[i], v2[i], Rref, Zsm_buff[i], Zom_buff[i], Zstdm_buff[i], Zstd);
+
+		if( // nonsensical values, redo - sanity check
+			v2[i].magnitude >= 1
+//			|| fabs(wrap2_2pi(Zx_buff[i].phaserad) - wrap2_2pi(Zx_buff[i-1].phaserad)) >= ACCEPTABLE_PHASE_DELTA
+		)// ik it checks at index -1 but it's read only oh well
+		{
+			TransmitStringRaw("Redoing Frequency Point: ");
+			TransmitUInt32Raw(frequencies_visited[i]); TransmitStringRaw("\n");
+			timeout_cnt--;
+
+			if(timeout_cnt)	i--;
+			else timeout_cnt = MEAS_EXEC_TIMEOUT;
+		}
+		else
+		{
+			timeout_cnt = MEAS_EXEC_TIMEOUT;
+		}
+
+		Zstd[i] = (phasor_t) { 1 / (2 * M_PI * frequencies_visited[i] * capacitance_std) , - M_PI / 2};
+
+		Zx_buff[i] = Calculate_Zx_Full_Calibrated(v1[i], v2[i], Rref, Zsm_buff[i], Zom_buff[i], Zstdm_buff[i], Zstd[i]);
+
 	}
 	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 }
@@ -207,26 +257,47 @@ void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buf
 
 void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
-	Choose_Switching_Resistor(Rref);
+	Set_Resistor_Hardware(Rref);
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
-	Set_Sampling_Frequency(F_SAMPLE);
-
 	phasor_t v1[NFREQUENCIES];
 	phasor_t v2[NFREQUENCIES];
+
+	Set_Sampling_Frequency(F_SAMPLE);
+
+	ADC_SampleSingleShot();
+
+	uint32_t timeout_cnt = MEAS_EXEC_TIMEOUT;
 
 	for(size_t i = 0; i < NFREQUENCIES; i++)
 	{
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &v2[i]);
 		Zx_buff[i] = Calculate_Zx_Raw(v1[i], v2[i], Rref);
+		if(i == 0) continue; // accept value regardless -> see about this
+		if( // nonsensical values, redo - sanity check
+			v2[i].magnitude > 1
+//			|| fabs(wrap2_2pi(Zx_buff[i].phaserad) - wrap2_2pi(Zx_buff[i-1].phaserad)) >= ACCEPTABLE_PHASE_DELTA
+			)// ik it checks at index -1 but it's read only oh well
+		{
+			TransmitStringRaw("Redoing Frequency Point: ");
+			TransmitUInt32Raw(frequencies_visited[i]); TransmitStringRaw("\n");
+			timeout_cnt--;
+
+			if(timeout_cnt)	i--;
+			else timeout_cnt = MEAS_EXEC_TIMEOUT;
+		}
+		else
+		{
+			timeout_cnt = MEAS_EXEC_TIMEOUT;
+		}
 	}
 	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 }
 
 void Measurement_Routine_Voltage(phasor_t output[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
-	Choose_Switching_Resistor(Rref);
+	Set_Resistor_Hardware(Rref);
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
@@ -237,6 +308,11 @@ void Measurement_Routine_Voltage(phasor_t output[], switching_resistor_t Rref, u
 	for(size_t i = 0; i < NFREQUENCIES; i++)
 	{
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &output[i]);
+		if(output[i].magnitude > 1){
+			TransmitStringRaw("Redoing Frequency Point: ");
+			TransmitUInt32Raw(frequencies_visited); TransmitStringRaw("\n");
+			i--;
+		}// nonsensical values, redo
 	}
 }
 
@@ -412,7 +488,6 @@ phasor_t Calculate_Zx_Full_Calibrated(phasor_t v1, phasor_t v2, switching_resist
 	phasor_t ZomZm = phasor_sub(Zom, Zm);
 	 // edge case -> div by 0 => 0s will be ignored in dB
 	if(ZomZm.magnitude == 0 || ZstdmZsm.magnitude == 0) return (phasor_t) {0,0};
-
 
 
 	return (phasor_t) {

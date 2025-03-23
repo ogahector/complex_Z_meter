@@ -371,7 +371,7 @@ class RLCFitting(QThread):
             # Note: The file saving routine is commented out since it's not working
             # binary_file_write(self.file_path + '\\%s_rlc_fitting.txt' % get_date_time(2), rlc_data)
 
-            # Extract frequencies from rlc_data (assuming triplets: [freq, real, imag, ...])
+            # Extract frequencies from rlc_data (assuming triplets: [freq, mag, phase, ...])
             freqs = np.array([rlc_data[i] for i in range(len(rlc_data)) if i % 3 == 0])
 
             # Perform the RLC fit; rlc.rlc_fit_re_im returns a name and a best_fit dict
@@ -391,26 +391,31 @@ class RLCFitting(QThread):
 
             # --- Percentage Error Calculation ---
             # Extract measured impedance from rlc_data.
-            # We assume that the data are arranged in triplets: [frequency, real, imag, ...]
+            # We assume that the data are arranged in triplets: [frequency, mag, phase, ...]
             Z_measured = np.array(
-                [complex(rlc_data[i + 1], rlc_data[i + 2])
+                [rlc_data[i+1] * np.exp(1j * rlc_data[i+2])
                  for i in range(0, len(rlc_data), 3)]
             )
             # Calculate percentage error in logarithmic scale
-            percentage_error = np.abs(
+            mag_percentage_error = np.abs(
                 (np.log10(np.abs(Z_measured)) - np.log10(np.abs(Z_theoretical))) /
                 np.log10(np.abs(Z_theoretical))
             ) * 100
 
+            phase_percentage_error = np.abs(
+                (np.angle(Z_theoretical) - np.angle(Z_measured)) /
+                np.angle(Z_theoretical)
+            ) * 100
+
             # Plot the error using the provided function.
             # In this context, 'time' is taken as the frequency axis.
-            self.plot_obj.plot_rlc_fit(freqs, percentage_error)
+            self.plot_obj.plot_rlc_fit(freqs, mag_percentage_error, phase_percentage_error)
 
             # Plot the theoretical bode plot
             self.plot_obj.plot_bode(
                 freqs,
                 20 * np.log10(np.abs(Z_theoretical)),
-                180 / np.pi * np.angle(Z_theoretical),
+                180 / np.pi * np.unwrap(np.angle(Z_theoretical)),
                 option='model_fit'
             )
 
@@ -419,7 +424,7 @@ class RLCFitting(QThread):
                 f'RLC Device: {name}, with R: {RLCparams[0]:.3e} L: {RLCparams[1]:.3e} C: {RLCparams[2]:.3e}'
             )
 
-        except ZeroDivisionError as exc:
+        except Exception as exc:
             print("RLCFitting: " + str(exc))
             self.done_s.emit([])
         else:

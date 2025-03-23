@@ -91,7 +91,8 @@ switching_resistor_t current_resistor;
 phasor_t OC_CAL[NFREQUENCIES];
 phasor_t SC_CAL[NFREQUENCIES];
 phasor_t LD_CAL[NFREQUENCIES];
-const phasor_t Zstd = (phasor_t) {3260, 0};
+phasor_t Zstd[NFREQUENCIES];
+const double capacitance_std = 10e-9;
 phasor_t phasorZero[NFREQUENCIES];
 
 // Measured Impedance Values
@@ -219,6 +220,9 @@ int main(void)
 	  phasorZero[i] = (phasor_t) {0,0};
   }
 
+  // calculate reference impedance
+  uint32_t frequencies_wanted[NFREQUENCIES];
+
   current_resistor = RESISTOR0;
 
   HAL_UART_Receive_IT(&huart2, rx_buffer, RX_CMD_BYTE_NB);
@@ -282,7 +286,7 @@ int main(void)
 	  if(buttonPress())
 	  {
 		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-		  Choose_Switching_Resistor(RESISTOR3);
+		  Set_Resistor_Hardware(RESISTOR3);
 
 		  TransmitStringLn("DONE!");
 
@@ -290,7 +294,7 @@ int main(void)
 	  }
 	  else
 	  {
-		  Choose_Switching_Resistor(RESISTOR0);
+		  Set_Resistor_Hardware(RESISTOR0);
 		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 	  }
 #endif /* SWITCHING_RESISTOR_DEBUG_MODE */
@@ -1041,7 +1045,7 @@ void Process_Command(ui_command_t command_received)
 		}
 		}
 		current_resistor = new_res;
-		Choose_Switching_Resistor(new_res);
+		Set_Resistor_Hardware(new_res);
 
 		break;
 	}
@@ -1051,7 +1055,7 @@ void Process_Command(ui_command_t command_received)
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
 		current_resistor = RESISTOR0;
-		Choose_Switching_Resistor(current_resistor);
+		Set_Resistor_Hardware(current_resistor);
 
 		Measurement_Routine_Zx_Raw(SC_CAL, current_resistor, frequencies_visited);
 
@@ -1070,7 +1074,7 @@ void Process_Command(ui_command_t command_received)
 
 //		current_resistor = RESISTOR3;
 		current_resistor = RESISTOR0; // bc we have no choice for now
-		Choose_Switching_Resistor(current_resistor);
+		Set_Resistor_Hardware(current_resistor);
 
 		Measurement_Routine_Zx_Raw(OC_CAL, current_resistor, frequencies_visited);
 
@@ -1085,7 +1089,7 @@ void Process_Command(ui_command_t command_received)
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
 		current_resistor = RESISTOR0;
-		Choose_Switching_Resistor(current_resistor);
+		Set_Resistor_Hardware(current_resistor);
 
 		Measurement_Routine_Zx_Raw(LD_CAL, current_resistor, frequencies_visited);
 

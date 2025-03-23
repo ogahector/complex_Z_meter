@@ -8,7 +8,7 @@
 #include "relay.h"
 #include "main.h"
 
-void Choose_Switching_Resistor(switching_resistor_t res)
+void Set_Resistor_Hardware(switching_resistor_t res)
 {
 	switch(res)
 	{
@@ -40,6 +40,8 @@ void Choose_Switching_Resistor(switching_resistor_t res)
 	HAL_Delay(RELAY_SWITCH_DELAY_MS);
 }
 
+/*
+
 // Helper function to get neighboring resistor indices for a given resistor.
 void Get_Neighbors(switching_resistor_t res, switching_resistor_t *neighbors, int *num_neighbors)
 {
@@ -64,7 +66,8 @@ void Get_Neighbors(switching_resistor_t res, switching_resistor_t *neighbors, in
 }
 
 // Main function to choose the resistor based on quality measurements.
-void Choose_Switching_Resistor()
+//void Choose_Switching_Resistor()
+void MyChooseRes()
 {
     switching_resistor_t resistorOptions[NUM_RESISTORS] = {RESISTOR0, RESISTOR1, RESISTOR2, RESISTOR3};
     float qualityResults[NUM_RESISTORS];
@@ -114,4 +117,5 @@ void Choose_Switching_Resistor()
     Set_Resistor_Hardware(bestResistor);
     Signal_Resistor_Selection_Complete(bestResistor);
 }
+*/
 
