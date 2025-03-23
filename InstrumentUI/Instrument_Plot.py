@@ -118,17 +118,17 @@ class PlotCanvas(FigureCanvas):
         # -------------------------------------------------
         # 2. RLC Fit Curve & Error Plot - Middle section
         # -------------------------------------------------
-        # Create an axis for the RLC fit curve
-        self.rlc_fit_ax = self.figure.add_subplot(self.grid[28:39, 1:8])
-        self.rlc_fit_ax.set_title("RLC Fit", fontdict={'fontweight': 'bold'})
-        # self.rlc_fit_ax.set_xlabel("Frequency [Hz]", labelpad=-1)
-        self.rlc_fit_ax.set_ylabel("Voltage [V]", labelpad=-2)
-        self.rlc_fit_ax.set_xscale("log")
-        self.rlc_fit_ax.set_ylim(-1, 1)  # Placeholder range
-        [self.rlc_fit_fig] = self.rlc_fit_ax.plot([], [], 'g-')  # Empty initial plot
+        # # Create an axis for the RLC fit curve
+        # self.rlc_fit_ax = self.figure.add_subplot(self.grid[28:39, 1:8])
+        # self.rlc_fit_ax.set_title("RLC Fit", fontdict={'fontweight': 'bold'})
+        # # self.rlc_fit_ax.set_xlabel("Frequency [Hz]", labelpad=-1)
+        # self.rlc_fit_ax.set_ylabel("Voltage [V]", labelpad=-2)
+        # self.rlc_fit_ax.set_xscale("log")
+        # self.rlc_fit_ax.set_ylim(-1, 1)  # Placeholder range
+        # [self.rlc_fit_fig] = self.rlc_fit_ax.plot([], [], 'g-')  # Empty initial plot
 
         # Create an axis for the error plot (positioned next to the RLC fit plot)
-        self.rlc_error_ax = self.figure.add_subplot(self.grid[28:39, 12:20])
+        self.rlc_error_ax = self.figure.add_subplot(self.grid[28:39, 1:20])
         self.rlc_error_ax.set_title("Fit Error", fontdict={'fontweight': 'bold'})
         # self.rlc_error_ax.set_xlabel("Frequency [Hz]", labelpad=-1)
         self.rlc_error_ax.set_ylabel("Error [%]", labelpad=-2)
@@ -216,7 +216,7 @@ class PlotCanvas(FigureCanvas):
         self.figure.subplots_adjust(right=0.95, top=0.95, bottom=0.05, hspace=0.3)
         self.draw()
 
-    def plot_rlc_fit(self, time, fit_curve, error):
+    def plot_rlc_fit(self, time, error):
         """
         Updates the RLC fit curve and the corresponding error plot.
 
@@ -227,10 +227,10 @@ class PlotCanvas(FigureCanvas):
         """
 
         # Update RLC Fit Curve
-        self.rlc_fit_fig.remove()
-        self.rlc_fit_fig, = self.rlc_fit_ax.plot(time, fit_curve, 'g-')
-        self.rlc_fit_ax.relim()
-        self.rlc_fit_ax.autoscale_view()
+        # self.rlc_fit_fig.remove()
+        # self.rlc_fit_fig, = self.rlc_fit_ax.plot(time, fit_curve, 'g-')
+        # self.rlc_fit_ax.relim()
+        # self.rlc_fit_ax.autoscale_view()
 
         # Update Fit Error Plot
         self.rlc_error_fig.remove()

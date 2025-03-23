@@ -368,30 +368,56 @@ class RLCFitting(QThread):
             rlc_data = self.serial_obj.execute_cmd("start_rlc_fit")
             if rlc_data is None:
                 print("rlc_data is None")
-            # Console
-            # self.serial_obj.print('\nS: RLC Fit Data %s, ' % rlc_data)
-            # Save
-            # this is broken idk why?
+            # Note: The file saving routine is commented out since it's not working
             # binary_file_write(self.file_path + '\\%s_rlc_fitting.txt' % get_date_time(2), rlc_data)
 
+            # Extract frequencies from rlc_data (assuming triplets: [freq, real, imag, ...])
             freqs = np.array([rlc_data[i] for i in range(len(rlc_data)) if i % 3 == 0])
 
+            # Perform the RLC fit; rlc.rlc_fit_re_im returns a name and a best_fit dict
             name, best_fit = rlc.rlc_fit_re_im(rlc_data, Rtol=0.1, Ltol=1e-9, Ctol=1e-12)
 
             try:
                 fitfunc = best_fit["model"]
                 RLCparams = best_fit["popt"]
             except KeyError as e:
-                print("Key error? what did you send through??")
+                print("Key error? What did you send through??")
+                # Optionally, you may want to exit the thread here
+                self.done_s.emit([])
+                return
 
+            # Compute theoretical impedance using the fitted model
             Z_theoretical = fitfunc(freqs, *RLCparams)
 
-            self.plot_obj.plot_bode(freqs, 
-                                    20 * np.log10(np.abs(Z_theoretical)),
-                                    180 / np.pi * np.angle(Z_theoretical),
-                                    option= 'model_fit')
-            
-            self.serial_obj.print(f'RLC Device: {name}, with R: {RLCparams[0]:.3e} L: {RLCparams[1]:.3e} C: {RLCparams[2]:.3e}')
+            # --- Percentage Error Calculation ---
+            # Extract measured impedance from rlc_data.
+            # We assume that the data are arranged in triplets: [frequency, real, imag, ...]
+            Z_measured = np.array(
+                [complex(rlc_data[i + 1], rlc_data[i + 2])
+                 for i in range(0, len(rlc_data), 3)]
+            )
+            # Calculate percentage error in logarithmic scale
+            percentage_error = np.abs(
+                (np.log10(np.abs(Z_measured)) - np.log10(np.abs(Z_theoretical))) /
+                np.log10(np.abs(Z_theoretical))
+            ) * 100
+
+            # Plot the error using the provided function.
+            # In this context, 'time' is taken as the frequency axis.
+            self.plot_obj.plot_rlc_fit(freqs, percentage_error)
+
+            # Plot the theoretical bode plot
+            self.plot_obj.plot_bode(
+                freqs,
+                20 * np.log10(np.abs(Z_theoretical)),
+                180 / np.pi * np.angle(Z_theoretical),
+                option='model_fit'
+            )
+
+            # Print device and parameter information
+            self.serial_obj.print(
+                f'RLC Device: {name}, with R: {RLCparams[0]:.3e} L: {RLCparams[1]:.3e} C: {RLCparams[2]:.3e}'
+            )
 
         except ZeroDivisionError as exc:
             print("RLCFitting: " + str(exc))
@@ -405,9 +431,8 @@ class RLCFitting(QThread):
         self.file_path = file_path
         self.next_step = next_step
 
-
 # ==============================================================================================================================
-# RLC Fitting
+# Q Factor
 # ==============================================================================================================================
 class QFactor(QThread):
     done_s = pyqtSignal(list)
