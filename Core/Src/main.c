@@ -93,6 +93,7 @@ phasor_t SC_CAL[NFREQUENCIES];
 phasor_t LD_CAL[NFREQUENCIES];
 phasor_t Zstd[NFREQUENCIES];
 const double capacitance_std = 10e-9;
+const double resistance_std = 3260.0f;
 phasor_t phasorZero[NFREQUENCIES];
 
 // Measured Impedance Values
@@ -227,11 +228,12 @@ int main(void)
 
   HAL_UART_Receive_IT(&huart2, rx_buffer, RX_CMD_BYTE_NB);
 
-  Set_Signal_Frequency(100000);
-  Set_Sampling_Frequency(1000000);
-
 #ifdef BOARD_DEBUG_MODE
+  Set_Signal_Frequency(100000);
+  Set_Sampling_Frequency(F_SAMPLE);
+
   Sig_Gen_Enable();
+  Set_Signal_Frequency(100e3);
 #endif
 
   /* USER CODE END 2 */
@@ -274,10 +276,10 @@ int main(void)
 		  Sig_Gen_Enable();
 	  }
 
-	  else
-	  {
-		  Sig_Gen_Disable();
-	  }
+//	  else
+//	  {
+//		  Sig_Gen_Disable();
+//	  }
 	  continue;
 
 #endif
@@ -285,18 +287,21 @@ int main(void)
 #ifdef SWITCHING_RESISTOR_DEBUG_MODE
 	  if(buttonPress())
 	  {
-		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-		  Set_Resistor_Hardware(RESISTOR3);
+//		  Set_Resistor_Hardware(RESISTOR3);
+
+		  Choose_Switching_Resistor();
 
 		  TransmitStringLn("DONE!");
 
 		  HAL_Delay(100);
+
+		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 	  }
-	  else
-	  {
-		  Set_Resistor_Hardware(RESISTOR0);
-		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-	  }
+//	  else
+//	  {
+//		  Set_Resistor_Hardware(RESISTOR0);
+//		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+//	  }
 #endif /* SWITCHING_RESISTOR_DEBUG_MODE */
 #endif /* NORMAL_MODE */
     /* USER CODE END WHILE */
@@ -452,7 +457,7 @@ static void MX_DAC_Init(void)
   /** DAC channel OUT1 config
   */
   sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
-  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_DISABLE;
+  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
@@ -1059,9 +1064,6 @@ void Process_Command(ui_command_t command_received)
 
 		Measurement_Routine_Zx_Raw(SC_CAL, current_resistor, frequencies_visited);
 
-//		for(size_t i = 0; i < NFREQUENCIES; i++)
-//			SC_CAL[i] = phasor_sub(SC_CAL[i], (phasor_t) {100, 0});
-
 		TransmitPhasorDataframeUI(frequencies_visited, SC_CAL, current_resistor); // ? idk if needed
 
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
@@ -1072,8 +1074,8 @@ void Process_Command(ui_command_t command_received)
 	{
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-//		current_resistor = RESISTOR3;
-		current_resistor = RESISTOR0; // bc we have no choice for now
+		current_resistor = RESISTOR3;
+//		current_resistor = RESISTOR0; // bc we have no choice for now
 		Set_Resistor_Hardware(current_resistor);
 
 		Measurement_Routine_Zx_Raw(OC_CAL, current_resistor, frequencies_visited);
@@ -1088,7 +1090,7 @@ void Process_Command(ui_command_t command_received)
 	{
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-		current_resistor = RESISTOR0;
+		current_resistor = RESISTOR1;
 		Set_Resistor_Hardware(current_resistor);
 
 		Measurement_Routine_Zx_Raw(LD_CAL, current_resistor, frequencies_visited);
@@ -1102,6 +1104,8 @@ void Process_Command(ui_command_t command_received)
 	case readout_meas:
 	{
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+
+//		Choose_Switching_Resistor();
 
 //		Measurement_Routine_Zx_Calibrated(Zx_measured, SC_CAL, OC_CAL, current_resistor, frequencies_visited);
 		Measurement_Routine_Zx_Full_Calibrated(Zx_measured, SC_CAL, OC_CAL, LD_CAL, Zstd, current_resistor, frequencies_visited);

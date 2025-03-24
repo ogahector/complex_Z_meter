@@ -246,7 +246,8 @@ void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buf
 			timeout_cnt = MEAS_EXEC_TIMEOUT;
 		}
 
-		Zstd[i] = (phasor_t) { 1 / (2 * M_PI * frequencies_visited[i] * capacitance_std) , - M_PI / 2};
+//		Zstd[i] = (phasor_t) { 1 / (2 * M_PI * frequencies_visited[i] * capacitance_std) , -1 * M_PI / 2};
+		Zstd[i] = (phasor_t) { 3260.0f, 0 };
 
 		Zx_buff[i] = Calculate_Zx_Full_Calibrated(v1[i], v2[i], Rref, Zsm_buff[i], Zom_buff[i], Zstdm_buff[i], Zstd[i]);
 
@@ -274,7 +275,7 @@ void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, u
 	{
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &v2[i]);
 		Zx_buff[i] = Calculate_Zx_Raw(v1[i], v2[i], Rref);
-		if(i == 0) continue; // accept value regardless -> see about this
+//		if(i == 0) continue; // accept value regardless -> see about this
 		if( // nonsensical values, redo - sanity check
 			v2[i].magnitude > 1
 //			|| fabs(wrap2_2pi(Zx_buff[i].phaserad) - wrap2_2pi(Zx_buff[i-1].phaserad)) >= ACCEPTABLE_PHASE_DELTA
@@ -332,6 +333,17 @@ phasor_t Get_Phasor_1Sig(uint16_t sig[], size_t len, uint32_t f0, uint32_t fs)
 	 * to get a phasor with respect to a reference.
 	 */
 	double I = 0.0, Q = 0.0;
+#ifdef __REMOVE_OFFSETS_IQ
+	/*
+	 * CAREFUL!!
+	 * Using the mean assumes that the signal is centered around one single point
+	 * Which to be fair now that I think about it is kind of the same with using 2048
+	 * so to experiment..
+	 */
+	double sigmean = 0;
+	for(size_t i = 0; i < len; i++) sigmean += sig[i];
+	sigmean /= len;
+#endif
 
 	for(size_t i = 0; i < len; i++)
 	{
@@ -339,8 +351,15 @@ phasor_t Get_Phasor_1Sig(uint16_t sig[], size_t len, uint32_t f0, uint32_t fs)
 		double ref_cos = cos(ang_step);
 		double ref_sin = sin(ang_step);
 
+#ifdef __REMOVE_OFFSETS_IQ
+//		I += ((int16_t) (sig[i] - 2048)) * ref_cos;
+//		Q += ((int16_t) (sig[i] - 2048)) * ref_sin;
+		I += ((int16_t) (sig[i] - sigmean)) * ref_cos;
+		Q += ((int16_t) (sig[i] - sigmean)) * ref_sin;
+#else
 		I += sig[i] * ref_cos;
 		Q += sig[i] * ref_sin;
+#endif
 	}
 
 	I /= len;

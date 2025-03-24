@@ -25,9 +25,10 @@
 #define MEAS_EXEC_TIMEOUT 20
 
 #define NCONVERSIONCYCLES 45
-//#define __USING_MOVING_AVERAGE
-#define __WRAP2_2PI
+#define __USING_MOVING_AVERAGE
+//#define __WRAP2_2PI
 #define __INCLUDE_CONV_PHASE
+#define __REMOVE_OFFSETS_IQ
 
 extern ADC_HandleTypeDef hadc1;
 extern DMA_HandleTypeDef hdma_adc1;
