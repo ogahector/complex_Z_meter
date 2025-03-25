@@ -14,6 +14,21 @@
 volatile uint8_t adcDmaTransferComplete;
 uint16_t vmeas_buffer_copy[ADC_BUFFER_SIZE];
 
+extern phasor_t OC_CAL_RES0[NFREQUENCIES];
+extern phasor_t OC_CAL_RES1[NFREQUENCIES];
+extern phasor_t OC_CAL_RES2[NFREQUENCIES];
+extern phasor_t OC_CAL_RES3[NFREQUENCIES];
+
+extern phasor_t SC_CAL_RES0[NFREQUENCIES];
+extern phasor_t SC_CAL_RES1[NFREQUENCIES];
+extern phasor_t SC_CAL_RES2[NFREQUENCIES];
+extern phasor_t SC_CAL_RES3[NFREQUENCIES];
+
+extern phasor_t LD_CAL_RES0[NFREQUENCIES];
+extern phasor_t LD_CAL_RES1[NFREQUENCIES];
+extern phasor_t LD_CAL_RES2[NFREQUENCIES];
+extern phasor_t LD_CAL_RES3[NFREQUENCIES];
+
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
@@ -208,8 +223,46 @@ void Measurement_Routine_Zx_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], 
 	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 }
 
-void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], phasor_t Zstdm_buff[], phasor_t Zstd[], switching_resistor_t Rref, uint32_t frequencies_visited[])
+void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zstd[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
+	phasor_t* Zsm_buff;
+	phasor_t* Zom_buff;
+	phasor_t* Zstdm_buff;
+
+	switch(Rref)
+	{
+	case RESISTOR0:
+	{
+		Zsm_buff = SC_CAL_RES0;
+		Zom_buff = OC_CAL_RES0;
+		Zstdm_buff = LD_CAL_RES0;
+		break;
+	}
+	case RESISTOR1:
+	{
+		Zsm_buff = SC_CAL_RES1;
+		Zom_buff = OC_CAL_RES1;
+		Zstdm_buff = LD_CAL_RES1;
+		break;
+	}
+	case RESISTOR2:
+	{
+		Zsm_buff = SC_CAL_RES2;
+		Zom_buff = OC_CAL_RES2;
+		Zstdm_buff = LD_CAL_RES2;
+		break;
+	}
+	case RESISTOR3:
+	{
+		Zsm_buff = SC_CAL_RES3;
+		Zom_buff = OC_CAL_RES3;
+		Zstdm_buff = LD_CAL_RES3;
+		break;
+	}
+	default: break;
+	}
+
+
 	Set_Resistor_Hardware(Rref);
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
@@ -223,16 +276,13 @@ void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buf
 
 	uint32_t timeout_cnt = MEAS_EXEC_TIMEOUT;
 
-	extern double capacitance_std;
+	extern const double resistance_std;
 
 	for(size_t i = 0; i < NFREQUENCIES; i++)
 	{
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &v2[i]);
 
-		if( // nonsensical values, redo - sanity check
-			v2[i].magnitude >= 1
-//			|| fabs(wrap2_2pi(Zx_buff[i].phaserad) - wrap2_2pi(Zx_buff[i-1].phaserad)) >= ACCEPTABLE_PHASE_DELTA
-		)// ik it checks at index -1 but it's read only oh well
+		if(v2[i].magnitude >= 1)
 		{
 			TransmitStringRaw("Redoing Frequency Point: ");
 			TransmitUInt32Raw(frequencies_visited[i]); TransmitStringRaw("\n");
@@ -246,8 +296,7 @@ void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buf
 			timeout_cnt = MEAS_EXEC_TIMEOUT;
 		}
 
-//		Zstd[i] = (phasor_t) { 1 / (2 * M_PI * frequencies_visited[i] * capacitance_std) , -1 * M_PI / 2};
-		Zstd[i] = (phasor_t) { 3260.0f, 0 };
+		Zstd[i] = (phasor_t) { resistance_std , 0 };
 
 		Zx_buff[i] = Calculate_Zx_Full_Calibrated(v1[i], v2[i], Rref, Zsm_buff[i], Zom_buff[i], Zstdm_buff[i], Zstd[i]);
 
@@ -275,11 +324,8 @@ void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, u
 	{
 		frequencies_visited[i] = Sample_Steady_State_Phasors(frequencies_wanted[i], &v1[i], &v2[i]);
 		Zx_buff[i] = Calculate_Zx_Raw(v1[i], v2[i], Rref);
-//		if(i == 0) continue; // accept value regardless -> see about this
-		if( // nonsensical values, redo - sanity check
-			v2[i].magnitude > 1
-//			|| fabs(wrap2_2pi(Zx_buff[i].phaserad) - wrap2_2pi(Zx_buff[i-1].phaserad)) >= ACCEPTABLE_PHASE_DELTA
-			)// ik it checks at index -1 but it's read only oh well
+
+		if(v2[i].magnitude > 1)
 		{
 			TransmitStringRaw("Redoing Frequency Point: ");
 			TransmitUInt32Raw(frequencies_visited[i]); TransmitStringRaw("\n");

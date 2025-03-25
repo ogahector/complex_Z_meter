@@ -88,10 +88,23 @@ uint16_t vmeas_buffer[ADC_BUFFER_SIZE];
 switching_resistor_t current_resistor;
 
 // Calibration IMPEDANCE values
-phasor_t OC_CAL[NFREQUENCIES];
-phasor_t SC_CAL[NFREQUENCIES];
-phasor_t LD_CAL[NFREQUENCIES];
+phasor_t OC_CAL_RES0[NFREQUENCIES];
+phasor_t OC_CAL_RES1[NFREQUENCIES];
+phasor_t OC_CAL_RES2[NFREQUENCIES];
+phasor_t OC_CAL_RES3[NFREQUENCIES];
+
+phasor_t SC_CAL_RES0[NFREQUENCIES];
+phasor_t SC_CAL_RES1[NFREQUENCIES];
+phasor_t SC_CAL_RES2[NFREQUENCIES];
+phasor_t SC_CAL_RES3[NFREQUENCIES];
+
+phasor_t LD_CAL_RES0[NFREQUENCIES];
+phasor_t LD_CAL_RES1[NFREQUENCIES];
+phasor_t LD_CAL_RES2[NFREQUENCIES];
+phasor_t LD_CAL_RES3[NFREQUENCIES];
+
 phasor_t Zstd[NFREQUENCIES];
+
 const double capacitance_std = 10e-9;
 const double resistance_std = 3260.0f;
 phasor_t phasorZero[NFREQUENCIES];
@@ -215,9 +228,6 @@ int main(void)
   // assert 0 calibration phasors
   for(size_t i = 0; i < NFREQUENCIES; i++)
   {
-	  SC_CAL[i] = (phasor_t) {0,0};
-	  OC_CAL[i] = (phasor_t) {1e32,0};
-	  LD_CAL[i] = (phasor_t) {0,0};
 	  phasorZero[i] = (phasor_t) {0,0};
   }
 
@@ -986,6 +996,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
 void Process_Command(ui_command_t command_received)
 {
 	char msg[128];
+	static const switching_resistor_t available_resistors[NUM_RESISTORS] = {RESISTOR0, RESISTOR1, RESISTOR2, RESISTOR3};
 
 	switch(command_received)
 	{
@@ -1062,12 +1073,24 @@ void Process_Command(ui_command_t command_received)
 	{
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-		current_resistor = RESISTOR0;
-		Set_Resistor_Hardware(current_resistor);
+		for(size_t i = 0; i < NUM_RESISTORS; i++)
+		{
+			current_resistor = available_resistors[i];
+			Set_Resistor_Hardware(current_resistor);
 
-		Measurement_Routine_Zx_Raw(SC_CAL, current_resistor, frequencies_visited);
+			phasor_t* SC_CAL;
+			switch (current_resistor)
+			{
+			case RESISTOR0: SC_CAL = SC_CAL_RES0; break;
+			case RESISTOR1: SC_CAL = SC_CAL_RES1; break;
+			case RESISTOR2: SC_CAL = SC_CAL_RES2; break;
+			case RESISTOR3: SC_CAL = SC_CAL_RES3; break;
+			default: break;
+			}
+			Measurement_Routine_Zx_Raw(SC_CAL, current_resistor, frequencies_visited);
+		}
 
-		TransmitPhasorDataframeUI(frequencies_visited, SC_CAL, current_resistor); // ? idk if needed
+		TransmitPhasorDataframeUI(frequencies_visited, SC_CAL_RES0, current_resistor); // ? idk if needed
 
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 		break;
@@ -1077,13 +1100,24 @@ void Process_Command(ui_command_t command_received)
 	{
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-		current_resistor = RESISTOR3;
-//		current_resistor = RESISTOR0; // bc we have no choice for now
-		Set_Resistor_Hardware(current_resistor);
+		for(size_t i = 0; i < NUM_RESISTORS; i++)
+		{
+			current_resistor = available_resistors[i];
+			Set_Resistor_Hardware(current_resistor);
 
-		Measurement_Routine_Zx_Raw(OC_CAL, current_resistor, frequencies_visited);
+			phasor_t* OC_CAL;
+			switch (current_resistor)
+			{
+			case RESISTOR0: OC_CAL = OC_CAL_RES0; break;
+			case RESISTOR1: OC_CAL = OC_CAL_RES1; break;
+			case RESISTOR2: OC_CAL = OC_CAL_RES2; break;
+			case RESISTOR3: OC_CAL = OC_CAL_RES3; break;
+			default: break;
+			}
+			Measurement_Routine_Zx_Raw(OC_CAL, current_resistor, frequencies_visited);
+		}
 
-		TransmitPhasorDataframeUI(frequencies_visited, OC_CAL, current_resistor);
+		TransmitPhasorDataframeUI(frequencies_visited, OC_CAL_RES0, current_resistor);
 
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 		break;
@@ -1093,12 +1127,24 @@ void Process_Command(ui_command_t command_received)
 	{
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-		current_resistor = RESISTOR1;
-		Set_Resistor_Hardware(current_resistor);
+		for(size_t i = 0; i < NUM_RESISTORS; i++)
+		{
+			current_resistor = available_resistors[i];
+			Set_Resistor_Hardware(current_resistor);
 
-		Measurement_Routine_Zx_Raw(LD_CAL, current_resistor, frequencies_visited);
+			phasor_t* LD_CAL;
+			switch (current_resistor)
+			{
+			case RESISTOR0: LD_CAL = LD_CAL_RES0; break;
+			case RESISTOR1: LD_CAL = LD_CAL_RES1; break;
+			case RESISTOR2: LD_CAL = LD_CAL_RES2; break;
+			case RESISTOR3: LD_CAL = LD_CAL_RES3; break;
+			default: break;
+			}
+			Measurement_Routine_Zx_Raw(LD_CAL, current_resistor, frequencies_visited);
+		}
 
-		TransmitPhasorDataframeUI(frequencies_visited, LD_CAL, current_resistor);
+		TransmitPhasorDataframeUI(frequencies_visited, LD_CAL_RES0, current_resistor);
 
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 		break;
@@ -1108,10 +1154,10 @@ void Process_Command(ui_command_t command_received)
 	{
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-//		Choose_Switching_Resistor();
+		Choose_Switching_Resistor();
 
 //		Measurement_Routine_Zx_Calibrated(Zx_measured, SC_CAL, OC_CAL, current_resistor, frequencies_visited);
-		Measurement_Routine_Zx_Full_Calibrated(Zx_measured, SC_CAL, OC_CAL, LD_CAL, Zstd, current_resistor, frequencies_visited);
+		Measurement_Routine_Zx_Full_Calibrated(Zx_measured, Zstd, current_resistor, frequencies_visited);
 //		Measurement_Routine_Zx_Raw(Zx_measured, current_resistor, frequencies_visited);
 //		Measurement_Routine_Voltage(Zx_measured, current_resistor, frequencies_visited);
 
