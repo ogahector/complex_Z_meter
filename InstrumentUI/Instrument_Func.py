@@ -35,7 +35,6 @@ def binary_file_write(file, data_list):
         temp = bytearray(str(data), 'utf8')
         fw.write(temp)
         fw.write(b', ')
-    fw.write(bytearray(str(data_list[-1])))
     fw.close()
 
 def binary_file_write_phasors(file, triplet_list):

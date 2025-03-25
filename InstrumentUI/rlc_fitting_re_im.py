@@ -222,30 +222,31 @@ def rlc_fit_re_im(measurements, Rtol=0.1, Ltol=1e-9, Ctol=1e-12, plot_all=False)
             best_ssq = res["ssq"]
             best_model_name = name
     
-    if best_model_name is None:
-        print(results)
-        # raise Exception("No valid model found.")
-        print("Trying again but with inverted phase")
+    ## CHECK FOR CONJUGATE:
+    # if best_model_name is None:
+    #     print(results)
+    #     # raise Exception("No valid model found.")
+    #     print("Trying again but with inverted phase")
 
-        for i in range(len(measurements)):
-            if i % 3 == 2:
-                measurements[i] = - measurements[i]
+    #     for i in range(len(measurements)):
+    #         if i % 3 == 2:
+    #             measurements[i] = - measurements[i]
 
-        freqs, Z_measured, data = prepare_data_real_imag(measurements)
+    #     freqs, Z_measured, data = prepare_data_real_imag(measurements)
 
-        for name, funcs in rlc_models.items():
-            try:
-                bounds = funcs["bounds"]
-                popt, perr, ssq = iterative_fit(funcs["model_fit"], freqs, data, 
-                                                initial_guess, bounds=bounds, 
-                                                Rtol=Rtol, Ltol=Ltol, Ctol=Ctol, 
-                                                method="trf")
+    #     for name, funcs in rlc_models.items():
+    #         try:
+    #             bounds = funcs["bounds"]
+    #             popt, perr, ssq = iterative_fit(funcs["model_fit"], freqs, data, 
+    #                                             initial_guess, bounds=bounds, 
+    #                                             Rtol=Rtol, Ltol=Ltol, Ctol=Ctol, 
+    #                                             method="trf")
 
-            except Exception as e:
-                print(f"{name} model iterative fit failed: {e}")
-                popt, perr, ssq = None, None, np.inf
-            results[name] = {"popt": popt, "perr": perr, "ssq": ssq, 
-                            "model": funcs["model"], "model_fit": funcs["model_fit"]}
+    #         except Exception as e:
+    #             print(f"{name} model iterative fit failed: {e}")
+    #             popt, perr, ssq = None, None, np.inf
+    #         results[name] = {"popt": popt, "perr": perr, "ssq": ssq, 
+    #                         "model": funcs["model"], "model_fit": funcs["model_fit"]}
             
     best_model_name = None
     best_ssq = np.inf

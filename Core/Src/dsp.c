@@ -168,7 +168,7 @@ void Get_All_Raw_Phasors(phasor_t inputs[], phasor_t outputs[], float Rref)
 
 void Measurement_Routine_Zx_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
-	Set_Resistor_Hardware(Rref);
+//	Set_Resistor_Hardware(Rref);
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
@@ -210,7 +210,7 @@ void Measurement_Routine_Zx_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], 
 
 void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buff[], phasor_t Zom_buff[], phasor_t Zstdm_buff[], phasor_t Zstd[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
-	Set_Resistor_Hardware(Rref);
+//	Set_Resistor_Hardware(Rref);
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
@@ -258,7 +258,7 @@ void Measurement_Routine_Zx_Full_Calibrated(phasor_t Zx_buff[], phasor_t Zsm_buf
 
 void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
-	Set_Resistor_Hardware(Rref);
+//	Set_Resistor_Hardware(Rref);
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
@@ -298,7 +298,7 @@ void Measurement_Routine_Zx_Raw(phasor_t Zx_buff[], switching_resistor_t Rref, u
 
 void Measurement_Routine_Voltage(phasor_t output[], switching_resistor_t Rref, uint32_t frequencies_visited[])
 {
-	Set_Resistor_Hardware(Rref);
+//	Set_Resistor_Hardware(Rref);
 	uint32_t frequencies_wanted[NFREQUENCIES];
 	Calculate_Frequencies(FREQ_MIN, FREQ_MAX, FREQ_PPDECADE, NFREQUENCIES, frequencies_wanted);
 
@@ -512,18 +512,14 @@ phasor_t Calculate_Zx_Full_Calibrated(phasor_t v1, phasor_t v2, switching_resist
 	return (phasor_t) {
 		Zstd.magnitude * ZomZstdm.magnitude * ZmZsm.magnitude / ( ZstdmZsm.magnitude * ZomZm.magnitude ),
 #ifdef __WRAP2_2PI
-		wrap2_2pi( Zstd.phaserad + ZomZstdm.phaserad + ZmZsm.phaserad - ZstdmZsm.phaserad - ZomZm.phaserad )
+		wrap2_2pi( - (Zstd.phaserad + ZomZstdm.phaserad + ZmZsm.phaserad - ZstdmZsm.phaserad - ZomZm.phaserad) )
 #else
-		Zstd.phaserad + ZomZstdm.phaserad + ZmZsm.phaserad - ZstdmZsm.phaserad - ZomZm.phaserad
+		- (Zstd.phaserad + ZomZstdm.phaserad + ZmZsm.phaserad - ZstdmZsm.phaserad - ZomZm.phaserad)
 #endif
 	};
 }
 
-// Applies a moving average filter to the input data.
-// input: array of input samples.
-// output: array where the filtered data will be stored (should be the same length as input).
-// n: number of samples in the dataset.
-// window_size: number of samples to include in the average.
+
 void Moving_Average_Filter(const uint16_t *input, uint16_t *output, size_t size, uint32_t fc)
 {
     double sum = 0.0f;

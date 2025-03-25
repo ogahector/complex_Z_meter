@@ -369,7 +369,7 @@ class RLCFitting(QThread):
             if rlc_data is None:
                 print("rlc_data is None")
             # Note: The file saving routine is commented out since it's not working
-            # binary_file_write(self.file_path + '\\%s_rlc_fitting.txt' % get_date_time(2), rlc_data)
+            binary_file_write(self.file_path + '\\%s_rlc_fitting.txt' % get_date_time(2), rlc_data)
 
             # Extract frequencies from rlc_data (assuming triplets: [freq, mag, phase, ...])
             freqs = np.array([rlc_data[i] for i in range(len(rlc_data)) if i % 3 == 0])
@@ -418,6 +418,9 @@ class RLCFitting(QThread):
                 180 / np.pi * np.unwrap(np.angle(Z_theoretical)),
                 option='model_fit'
             )
+
+            binary_file_write(self.file_path + '\\%s_rlc_fitting_magerror.txt' % get_date_time(2), mag_percentage_error)
+            binary_file_write(self.file_path + '\\%s_rlc_vals.txt' % get_date_time(2), RLCparams)
 
             # Print device and parameter information
             self.serial_obj.print(

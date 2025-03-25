@@ -224,7 +224,8 @@ int main(void)
   // calculate reference impedance
   uint32_t frequencies_wanted[NFREQUENCIES];
 
-  current_resistor = RESISTOR0;
+  current_resistor = RESISTOR1;
+  Set_Resistor_Hardware(RESISTOR0);
 
   HAL_UART_Receive_IT(&huart2, rx_buffer, RX_CMD_BYTE_NB);
 
@@ -1059,8 +1060,8 @@ void Process_Command(ui_command_t command_received)
 	{
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-		current_resistor = RESISTOR0;
-		Set_Resistor_Hardware(current_resistor);
+		current_resistor = RESISTOR1;
+//		Set_Resistor_Hardware(current_resistor);
 
 		Measurement_Routine_Zx_Raw(SC_CAL, current_resistor, frequencies_visited);
 
@@ -1074,9 +1075,9 @@ void Process_Command(ui_command_t command_received)
 	{
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-		current_resistor = RESISTOR3;
+		current_resistor = RESISTOR1;
 //		current_resistor = RESISTOR0; // bc we have no choice for now
-		Set_Resistor_Hardware(current_resistor);
+//		Set_Resistor_Hardware(current_resistor);
 
 		Measurement_Routine_Zx_Raw(OC_CAL, current_resistor, frequencies_visited);
 
@@ -1091,7 +1092,7 @@ void Process_Command(ui_command_t command_received)
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
 		current_resistor = RESISTOR1;
-		Set_Resistor_Hardware(current_resistor);
+//		Set_Resistor_Hardware(current_resistor);
 
 		Measurement_Routine_Zx_Raw(LD_CAL, current_resistor, frequencies_visited);
 
