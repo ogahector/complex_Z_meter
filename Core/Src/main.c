@@ -40,13 +40,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NORMAL_MODE
+//#define NORMAL_MODE
 #define DEBUG_MODES
 //#define ADC_DAC_DEBUG_MODE
 //#define ONBOARD_FSM_MODE
 //#define BOARD_DEBUG_MODE
 //#define UART_DEBUG_MODE
-//#define SWITCHING_RESISTOR_DEBUG_MODE
+#define SWITCHING_RESISTOR_DEBUG_MODE
 
 
 /* USER CODE END PD */
@@ -236,6 +236,9 @@ int main(void)
   Set_Signal_Frequency(100e3);
 #endif
 
+  current_resistor = RESISTOR0;
+  Set_Resistor_Hardware(current_resistor);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -287,9 +290,9 @@ int main(void)
 #ifdef SWITCHING_RESISTOR_DEBUG_MODE
 	  if(buttonPress())
 	  {
-//		  Set_Resistor_Hardware(RESISTOR3);
+		  Set_Resistor_Hardware(RESISTOR3);
 
-		  Choose_Switching_Resistor();
+//		  Choose_Switching_Resistor();
 
 		  TransmitStringLn("DONE!");
 
