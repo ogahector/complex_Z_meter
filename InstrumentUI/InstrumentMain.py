@@ -39,7 +39,7 @@ class InstrumentMain(QMainWindow, Ui_InstrumentMain):
         # Get UI System Parameter
         self.ui_cwd = os.getcwd()
 
-        # Initial UI size ------------------------------------------------------------------------------------------------------
+        # Initial UI size --------------------------------------------------------------------------
         self.setFixedSize(790, 910)
 
         # - Auto complete user command

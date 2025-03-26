@@ -154,11 +154,11 @@ rlc_models = {
         "model_fit": series_model_fit,
         "bounds": ([0, 0, 0], [np.inf, 1, np.inf])  # Example bounds
     },
-    # "parallel": {
-    #     "model": parallel_model,
-    #     "model_fit": parallel_model_fit,
-    #     "bounds": ([0, 0, 0], [np.inf, 1, 1])  # Example bounds
-    # },
+    "parallel": {
+        "model": parallel_model,
+        "model_fit": parallel_model_fit,
+        "bounds": ([0, 0, 0], [np.inf, 1, 1])  # Example bounds
+    },
     "resistor": {
         "model": resistor_model,
         "model_fit": resistor_model_fit,
@@ -198,15 +198,15 @@ def rlc_fit_re_im(measurements, Rtol=0.1, Ltol=1e-9, Ctol=1e-12, plot_all=False)
                                             Rtol=Rtol, Ltol=Ltol, Ctol=Ctol, 
                                             method="trf")
             
-            popt_conj, perr_conj, ssq_conj = iterative_fit(funcs["model_fit"], freqs, data_conj,
-                                                           initial_guess, bounds=bounds,
-                                                           Rtol=Rtol, Ltol=Ltol, Ctol=Ctol,
-                                                           method="trf")
+            # popt_conj, perr_conj, ssq_conj = iterative_fit(funcs["model_fit"], freqs, data_conj,
+            #                                                initial_guess, bounds=bounds,
+            #                                                Rtol=Rtol, Ltol=Ltol, Ctol=Ctol,
+            #                                                method="trf")
             
-            if ssq > ssq_conj:
-                popt = popt_conj
-                perr = perr_conj
-                ssq = ssq_conj
+            # if ssq > ssq_conj:
+            #     popt = popt_conj
+            #     perr = perr_conj
+            #     ssq = ssq_conj
 
         except Exception as e:
             print(f"{name} model iterative fit failed: {e}")
