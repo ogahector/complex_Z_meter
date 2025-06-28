@@ -38,6 +38,8 @@ The system consists of:
 - Relay-based switching for multiple reference resistors
 - Differential current sensing using INA190 for redundancy
 - Isolated PDN with ultra-low-noise regulators
+- Separated Digital and Analogue grounds with single connection point for noise isolation
+- Stitching vias for RF high-frequency interference isolation
 
 ![Block Diagram](assets/List_of_IO_STM32.png)
 
